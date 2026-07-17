@@ -1,0 +1,10 @@
+{
+  "project_path": "/private/var/tmp_ai/linux-0.11-VC",
+  "pageplan-id": "linux-0.11-VC-pageplan-20260705-v1",
+  "tool": "codebase-memory-mcp",
+  "generated_at": "2026-07-05",
+  "mode": "full + LSP cross",
+  "query_mode": "fanout_all",
+  "pages_count": 1,
+  "shard_count": 1
+}

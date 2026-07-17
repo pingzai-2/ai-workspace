@@ -1,0 +1,32 @@
+{
+  "pageplan_id": "linux-0.11-VC-pageplan-20260705-v1",
+  "project_path": "/private/var/tmp_ai/linux-0.11-VC",
+  "query_mode": "fanout_all",
+  "pages": [
+    {
+      "pageplan_id": "linux-0.11-VC-pageplan-20260705-v1",
+      "page_id": "DB-1",
+      "name": "linux-0.11-VC",
+      "repo_path": "/private/var/tmp_ai/linux-0.11-VC",
+      "target_db_path": "/Users/as/.cache/codebase-memory-mcp/linux-0.11-VC.db",
+      "mode": "full + LSP cross",
+      "effective_files": 105,
+      "path_prefixes": [
+        "boot",
+        "build",
+        "fs",
+        "include",
+        "init",
+        "kernel",
+        "lib",
+        "mm"
+      ],
+      "members_file": null,
+      "exclude": [],
+      "skipped_files": [],
+      "skipped_dirs": [],
+      "status": "ready"
+    }
+  ],
+  "usage": "单 DB。改路径在 path_prefixes 内→重建 DB-1。"
+}

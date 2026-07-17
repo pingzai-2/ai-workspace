@@ -1,0 +1,45 @@
+{
+  "project_path": "/private/var/tmp_ai/linux-0.11-VC",
+  "pageplan-id": "linux-0.11-VC-pageplan-20260705-v1",
+  "tool": "codebase-memory-mcp",
+  "generated_at": "2026-07-05",
+  "query_mode": "fanout_all",
+  "pages_count": 1,
+  "total_nodes": 1972,
+  "total_edges": 3911,
+  "total_db_size_mb": 2,
+  "pages": [
+    {
+      "pageplan-id": "linux-0.11-VC-pageplan-20260705-v1",
+      "page-id": "DB-1",
+      "name": "linux-0.11-VC",
+      "target-db-path": "/Users/as/.cache/codebase-memory-mcp/linux-0.11-VC.db",
+      "db_size_mb": 2,
+      "repo-path": "/private/var/tmp_ai/linux-0.11-VC",
+      "scope": "Linux 0.11 早期内核（VC 注释版）",
+      "top-dirs": [
+        "boot",
+        "build",
+        "fs",
+        "include",
+        "init",
+        "kernel",
+        "lib",
+        "mm"
+      ],
+      "effective-files": 105,
+      "nodes": 1972,
+      "edges": 3911,
+      "exclude": [],
+      "skipped-files": [],
+      "skipped-dirs": [],
+      "status": "ready"
+    }
+  ],
+  "validation": {
+    "all-pages-ready": true,
+    "md5-verified": true,
+    "sqlite-integrity": "ok",
+    "calibration": "nodes/edges 以 index_status 实测值为准"
+  }
+}

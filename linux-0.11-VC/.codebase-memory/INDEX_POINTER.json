@@ -1,0 +1,33 @@
+{
+  "pageplan-id": "linux-0.11-VC-pageplan-20260705-v1",
+  "project_path": "/private/var/tmp_ai/linux-0.11-VC",
+  "project_memory_dir": "/private/var/tmp_ai/linux-0.11-VC/.codebase-memory",
+  "tool": "codebase-memory-mcp",
+  "query_mode": "fanout_all",
+  "pages": [
+    {
+      "pageplan-id": "linux-0.11-VC-pageplan-20260705-v1",
+      "page-id": "DB-1",
+      "name": "linux-0.11-VC",
+      "repo-path": "/private/var/tmp_ai/linux-0.11-VC",
+      "target-db-path": "/Users/as/.cache/codebase-memory-mcp/linux-0.11-VC.db",
+      "mode": "full + LSP cross",
+      "effective-files": 105,
+      "members": [
+        "boot",
+        "build",
+        "fs",
+        "include",
+        "init",
+        "kernel",
+        "lib",
+        "mm"
+      ],
+      "members-file": null,
+      "exclude": [],
+      "skipped-files": [],
+      "skipped-dirs": [],
+      "status": "ready"
+    }
+  ]
+}
