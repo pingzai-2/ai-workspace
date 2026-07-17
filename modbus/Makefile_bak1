@@ -1,0 +1,39 @@
+CURRENT_PATH := $(shell pwd)
+
+KERNELDIR := /home/book/docu/R818/lichee/kernel/linux-4.9
+LIBMODBUS_DIR := $(realpath ./libmodbus-r818/lib)
+LIBMODBUS_INCLUDES := $(realpath ./libmodbus-r818/include/modbus)
+APP_NAME = daikin_modbus
+
+# 找到所有的 C 文件
+SRC_FILES := $(wildcard *.c)
+
+# 将 .c 文件列表转换成 .o 文件列表
+OBJ_FILES := $(SRC_FILES:.c=.o)
+
+all: $(APP_NAME)_so $(APP_NAME)_a
+
+# 编译所有的 .o 文件并链接成最终的应用程序
+#$(APP_NAME): $(OBJ_FILES)
+#	$(CROSS_COMPILE)gcc -static -g -Wall -o $@ $^
+
+#动态链接的版本
+$(APP_NAME)_so: $(OBJ_FILES)
+	$(CROSS_COMPILE)gcc -g -Wall -o $@ $^ -I$(LIBMODBUS_INCLUDES) -L$(LIBMODBUS_DIR) -lmodbus
+
+#静态链接版本
+$(APP_NAME)_a: $(OBJ_FILES)
+	$(CROSS_COMPILE)gcc -static -g -Wall -o $@ $^ -I$(LIBMODBUS_INCLUDES) -L$(LIBMODBUS_DIR) -lmodbus
+
+# 生成每个 .o 文件的规则
+%.o: %.c
+	$(CROSS_COMPILE)gcc -g -Wall -I$(LIBMODBUS_INCLUDES) -c $< -o $@
+
+# 清理目标
+clean:
+	rm -rf $(APP_NAME)_so $(APP_NAME)_a $(OBJ_FILES)
+
+# 伪目标声明
+.PHONY: clean
+
+#aarch64-linux-gnu-gcc -static -o helloword helloword.c
