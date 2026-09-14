@@ -1,0 +1,81 @@
+# Bazel
+bazel-*
+MODULE.bazel
+MODULE.bazel.lock
+
+# Compiled Object files
+*.o
+*.lo
+*.slo
+*.obj
+
+# Compiled Depfile
+*.d
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.a
+*.la
+*.lai
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# cache
+*~
+*.bk
+*.bak
+*.old
+*.new
+
+# IDE
+.vs
+.vscode
+.DS_Store
+
+tags
+cscope*
+.ycm*
+
+# generated
+examples/protorpc/generated
+
+# output
+*.pid
+*.log
+*.db
+
+include
+lib
+bin
+tmp
+dist
+test
+*_test
+build
+
+# BeiAng offline source snapshot keeps config.mk, hconfig.h and the bundled
+# html/uploads scripts under version control. They are source inputs here,
+# not local build output.
+
+# msvc
+*.VC.*
+*.vcxproj.*
+Debug
+Release
+
+# cmake
+CMakeFiles
+CMakeCache.txt
+cmake_install.cmake

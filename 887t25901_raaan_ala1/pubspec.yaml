@@ -1,0 +1,85 @@
+name: home_dashboard_practice_app
+description: Beiang 8-inch home dashboard Flutter practice project
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=2.18.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: 0.18.1
+  path_provider: ^2.1.0
+  # 天气等矢量素材静态渲染用。Flutter 3.3.7 只能用 1.x（2.x 需 Flutter 3.7+）。
+  flutter_svg: ^1.1.6
+  # Lottie JSON 动画。固定到 Flutter 3.3.7 可用的纯 Dart 版本，便于离线复现。
+  lottie: 1.4.3
+
+# Flutter 3.3.7 的 flutter_localizations 声明依赖 intl 0.17.0。
+# 本工程已用该 SDK 的官方本地化测试集验证 intl 0.18.1（241 项通过），
+# third_party/pub-cache 同时保留已验证的 intl 0.17.0 作为离线备用版本。
+# 因此暂时保持既有版本；升级 Flutter 后应优先删除本 override 再解析依赖。
+dependency_overrides:
+  intl: 0.18.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    # PM2.5 圆盘四套素材按格式和用途分开保留；当前界面使用 GIF。
+    - assets/home/pm25_orb/dynamic_gif/
+    - assets/home/pm25_orb/static_png/
+    - assets/home/pm25_orb/dynamic_svg/
+    - assets/home/pm25_orb/static_svg/
+    - assets/home/figma_home/
+    - assets/history/
+    - assets/navigation/
+    - assets/home/top/
+    - assets/home/alerts/
+    # 天气四套素材按格式和用途分开保留；当前界面使用同名 GIF。
+    - assets/home/weather/dynamic_gif/
+    - assets/home/weather/static_png/
+    - assets/home/weather/dynamic_svg/
+    - assets/home/weather/static_svg/
+    - assets/idle/
+    - assets/smart/
+    - assets/settings/
+    - assets/manual/
+    - assets/fonts/HarmonyOS_Sans/
+    - assets/fonts/Source_Han_Sans_SC/
+    # 可选媒体素材目录：当前工程不接入 MP4/MKV 原生解码；动态矢量优先使用 Lottie JSON。
+    - assets/media/svg/
+    - assets/media/lottie/
+  fonts:
+    # HarmonyOS Sans — 数字、符号和大号读数；不承担翻译文字。
+    - family: HarmonyOS Sans Thin
+      fonts:
+        - asset: assets/fonts/HarmonyOS_Sans/HarmonyOS_Sans_Thin.ttf
+    - family: HarmonyOS Sans Light
+      fonts:
+        - asset: assets/fonts/HarmonyOS_Sans/HarmonyOS_Sans_Light.ttf
+    - family: HarmonyOS Sans
+      fonts:
+        - asset: assets/fonts/HarmonyOS_Sans/HarmonyOS_Sans_Regular.ttf
+    - family: HarmonyOS Sans Medium
+      fonts:
+        - asset: assets/fonts/HarmonyOS_Sans/HarmonyOS_Sans_Medium.ttf
+    - family: HarmonyOS Sans Bold
+      fonts:
+        - asset: assets/fonts/HarmonyOS_Sans/HarmonyOS_Sans_Bold.ttf
+    - family: HarmonyOS Sans Black
+      fonts:
+        - asset: assets/fonts/HarmonyOS_Sans/HarmonyOS_Sans_Black.ttf
+    # 翻译文字（中、日、英）统一使用 Source Han Sans SC VF。
+    # 字重轴由 lib/theme/app_fonts.dart 显式指定；JP 字体仅保留在工程中备用，
+    # 不在 assets 列表中，也不注册为 Flutter 字体，因此不会编译进 App。
+    - family: Source Han Sans SC
+      fonts:
+        - asset: assets/fonts/Source_Han_Sans_SC/SourceHanSansSC-VF.ttf

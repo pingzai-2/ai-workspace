@@ -1,0 +1,33 @@
+#ifndef LIBMODBUS_CONFIG_H
+#define LIBMODBUS_CONFIG_H
+
+#cmakedefine HAVE_ACCEPT4 1
+#cmakedefine HAVE_ARPA_INET_H 1
+#cmakedefine HAVE_BYTESWAP_H 1
+#cmakedefine01 HAVE_DECL_TIOCM_RTS
+#cmakedefine01 HAVE_DECL_TIOCSRS485
+#cmakedefine HAVE_GAI_STRERROR 1
+#cmakedefine HAVE_GETADDRINFO 1
+#cmakedefine HAVE_GETTIMEOFDAY 1
+#cmakedefine HAVE_INET_NTOP 1
+#cmakedefine HAVE_INET_PTON 1
+#cmakedefine HAVE_LINUX_SERIAL_H 1
+#cmakedefine HAVE_NETDB_H 1
+#cmakedefine HAVE_NETINET_IN_H 1
+#cmakedefine HAVE_NETINET_IP_H 1
+#cmakedefine HAVE_NETINET_TCP_H 1
+#cmakedefine HAVE_SELECT 1
+#cmakedefine HAVE_SOCKET 1
+#cmakedefine HAVE_STRERROR 1
+#cmakedefine HAVE_STRLCPY 1
+#cmakedefine HAVE_SYS_IOCTL_H 1
+#cmakedefine HAVE_SYS_SOCKET_H 1
+#cmakedefine HAVE_TERMIOS_H 1
+#cmakedefine HAVE_UNISTD_H 1
+
+#define PACKAGE "libmodbus"
+#define PACKAGE_NAME "libmodbus"
+#define PACKAGE_VERSION "3.1.2"
+#define VERSION "3.1.2"
+
+#endif

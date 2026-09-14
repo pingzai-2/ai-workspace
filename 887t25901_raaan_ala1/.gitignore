@@ -1,0 +1,60 @@
+# Operating-system metadata
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+
+# Editors and local tooling
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+*~
+
+# Local logs and temporary files
+*.log
+*.pid
+*.tmp
+
+# Flutter, Dart and Pub generated files
+**/doc/api/
+**/ios/Flutter/.last_build_id
+/.dart_tool/
+/.flutter-plugins
+/.flutter-plugins-dependencies
+/.packages
+/.pub-cache/
+/.pub/
+/build/
+/coverage/
+
+# Generated inside the delivered offline Pub cache during local verification
+/third_party/pub-cache/hosted/**/.dart_tool/
+/third_party/pub-cache/hosted/**/pubspec.lock
+
+# Tests are kept locally but are not delivered in this repository
+/test/
+
+# Local project analysis and overrides
+/.codebase-memory/
+/pubspec_overrides.yaml
+
+# Symbolication and obfuscation outputs
+app.*.symbols
+app.*.map.json
+
+# Android Studio build outputs
+/android/app/debug/
+/android/app/profile/
+/android/app/release/
+
+# Claude Code local configuration (includes MCP tokens)
+/.claude/
+
+# Build output directory (contains generated binaries, runtime config, etc.)
+/output/
+
+/CLAUDE.md

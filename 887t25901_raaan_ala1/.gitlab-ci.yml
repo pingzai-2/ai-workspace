@@ -1,0 +1,30 @@
+variables:
+  GIT_DEPTH: 0
+
+stages:
+  - review
+
+ai-code-review:
+  stage: review
+  tags:
+    - ai-review-shell
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - |
+      docker run --rm \
+        --user $(id -u):$(id -g) \
+        -v $(pwd):/app \
+        -e LLM__PROVIDER="OPENAI" \
+        -e LLM__META__MODEL="deepseek-ai/DeepSeek-V4-Flash" \
+        -e LLM__META__MAX_TOKENS="4096" \
+        -e LLM__META__TEMPERATURE="0.3" \
+        -e LLM__HTTP_CLIENT__API_URL="https://api.siliconflow.cn/v1" \
+        -e LLM__HTTP_CLIENT__API_TOKEN="$AI_API_KEY" \
+        -e VCS__PROVIDER="GITLAB" \
+        -e VCS__HTTP_CLIENT__API_URL="$CI_SERVER_URL" \
+        -e VCS__HTTP_CLIENT__API_TOKEN="$GITLAB_API_TOKEN" \
+        -e VCS__PIPELINE__PROJECT_ID="$CI_PROJECT_ID" \
+        -e VCS__PIPELINE__MERGE_REQUEST_ID="$CI_MERGE_REQUEST_IID" \
+        nikitafilonov/ai-review:v0.67.0 ai-review run
+  allow_failure: true

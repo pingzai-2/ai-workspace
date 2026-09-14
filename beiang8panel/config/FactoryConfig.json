@@ -1,0 +1,53 @@
+{
+    "dataAcquisition": {
+        "autoReconnect": true,
+        "interval": 1000,
+        "maxRetryCount": 5
+    },
+    "device": {
+        "address": 209,
+        "model": "4CP",
+        "protocolVersion": "v1.22"
+    },
+    "history": {
+        "dataDir": "/mnt/UDISK/beiang8panel/history",
+        "enabled": true,
+        "retentionDays": 370,
+        "sampleIntervalSec": 600
+    },
+    "memwatch": {
+        "enabled": true,
+        "checkIntervalSec": 10,
+        "warnThresholdMB": 64,
+        "restartAppThresholdMB": 32,
+        "rebootThresholdMB": 16,
+        "sustainedChecks": 3,
+        "actionCooldownSec": 300
+    },
+    "network": {
+        "httpHost": "0.0.0.0",
+        "httpPort": 8080
+    },
+    "ota": {
+        "baudRate": 1500000,
+        "enabled": true,
+        "serialPort": "/dev/ttyS1",
+        "workDir": "/mnt/UDISK/beiang8panel/ota"
+    },
+    "radar": {
+        "commandFile": "/tmp/trmk222_cmd",
+        "statusFile": "/mnt/UDISK/beiang8panel/radar_status.json"
+    },
+    "serial": {
+        "baudRate": 9600,
+        "dataBits": 8,
+        "parity": "N",
+        "port": "/dev/ttyS2",
+        "stopBits": 1,
+        "timeout": 50
+    },
+    "weather": {
+        "apiHost": "https://p64nmvptj5.re.qweatherapi.com",
+        "apiKey": "ced186ac5c6b4c8fb9f56ba0314d751a"
+    }
+}

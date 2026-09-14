@@ -1,0 +1,802 @@
+# BeiAng8Panel HTTP API Curl 测试用例
+# 服务器地址: http://localhost:8080
+# 软件版本: 1.4.2  |  协议版本: V1.22
+# 用法: 复制命令到终端执行。每条命令上方 "# →" 注释为该接口的真实预期响应。
+#
+# 重要说明（与 docs/HTTP_API.md 一致）：
+#   - 响应封装不统一：部分接口返回 {code,message,data}，部分返回裸对象/裸数组。
+#   - 实现状态: ✅已实现  🔄部分实现  ⚠️模拟数据  ❌未实现(返回 code:1006 或固定假响应)
+#   - /api/modbus/read 忽略 type 参数，始终按【保持寄存器(03H)】读取。
+#   - 业务错误码 code:1006 表示功能未实现（HTTP 仍为 200）。
+#   - 内联参数/业务错误（400/500/503）随同值 HTTP 状态码返回（body.code 与 HTTP 状态一致）；
+#     下文注释"HTTP 400"即状态码 400 且 body.code=400。
+
+
+# -----------------------------------------------------------------------------
+# ★ Modbus 寄存器速查表（供测试人员对照；[W]=真实写 [R]=真实读 [模拟]=未真正下发）
+# -----------------------------------------------------------------------------
+# 保持寄存器有效范围: 0x1000-0x103E (1000H-103EH)
+#
+#   地址            读写   用途                 用例编号(接口)
+#   1000H(4096)     [W]   通用单写演示          17/18 (/api/modbus/write)
+#   1000H(4096)     [R]   通用读演示(03H)       14/15/16 (/api/modbus/read)
+#   1001H           [W]   新风模块开关          6/7 (/api/freshair/switch; 单写, 见下方互斥说明)
+#   1001H           [R]   新风状态缓存之一      9 (/api/freshair/status)
+#   1002H           [W]   超净模式开关          14/15 (/api/super-pure/switch; 单写)
+#   1002H           [R]   超净状态缓存          17 (/api/super-pure/status)
+#   1003H           [W]   调湿模块开关          10/11 (/api/humidity-module/switch; 单写)
+#   1003H           [R]   调湿状态缓存之一      13 (/api/humidity-module/status)
+#   ※ 模块互斥联动(v1.22, 由4CP设备端自动执行, 屏只下发单条开关命令):
+#     开新风→设备自动关超净; 开超净→设备自动关新风+调湿; 开调湿→设备自动关超净;
+#     新风与调湿不互斥可共存。联动生效需数秒(写后读回刷新), 验证序列见用例17b。
+#   1006H           [R]   一键离家开关(v1.22)   周期采集缓存(暂无对外接口)
+#   1007H           [W]   新风运行模式          22 (/api/freshair/runmode; 前置1001H=1)
+#   1007H           [R]   风速只读前置判定      18/21 (=3自动/5睡眠时1008H拒写)
+#   1008H           [W]   新风风速档位          18 (/api/freshair/speed; 前置1001H=1且
+#                                                               1007H∈{0,1,2,4}; 上限: 模式2→2003H,
+#                                                               模式0/1/4→2004H, 不满足均HTTP 400)
+#   100FH           [W]   目标湿度              26 (/api/humidity-module/target)
+#   101BH-101FH     [W]   RTC时间(10H批量5寄存器)  33/34 (/api/rtc/time; 1016H-101AH预留)
+#   2000H-203BH     [R]   输入寄存器周期采集块  6/9 (04H整块60个; 环境数据/风量最大档等由此解析)
+#   2003H/2004H     [R]   风量上限+状态缓存    9/18 (status返回; 1008H写校验上限)
+#   200FH/2013H     [R]   室内/室外PM2.5缓存    8 (/api/idle/air-quality-reminder)
+#   1004H/1005H     [W]   加湿/除湿开关          72/73 (前置1003H=0; 见用例17b后互斥说明)
+#   1009H           [W]   排风风量档位(预留)     74 (/api/freshair/exhaust-speed)
+#   100AH           [W]   整机运行模式           76 (/api/device/unit-run-mode)
+#   100BH-100EH     [W]   无极风量/占空比        77/78 (/api/freshair/stepless,/duty)
+#   1010H-1015H     [W]   温度/消毒/辅热/强度等  79-83 (§15组: ×10存储见79/83)
+#   1020H           [W]   延时关风机             84 (/api/device/fan-delay-off)
+#   1028H-1040H     [W]   压缩机/厂测/滤网复位   85-91 (1040H恢复出厂高危需confirm)
+#   1041H-1076H     [W]   厂测标定(🔒厂测锁)     92/93 (未进厂测模式→400)
+#   1016H           [模拟] 批量写演示(未下发)   19 (/api/modbus/write-multiple)
+#   离散0/32        [模拟] 读离散输入(未调02H)  20 (/api/modbus/read-discrete)
+# -----------------------------------------------------------------------------
+
+# =============================================================================
+# 一、设备控制 API
+# =============================================================================
+
+# 1. 获取设备状态  ✅ ▸寄存器: R 纯缓存接口(本调用不触发 Modbus)——数据来自采集线程
+#    周期读: 保持寄存器整块 1000H-1076H(03H,119个) + 输入寄存器 2000H-203BH(04H,60个) + 离散 3000H+0-76(02H,77位);
+#    本接口消费字段: 1000H总开关/1001H新风/1002H超净/1003H调湿/1004H加湿/1005H除湿/1006H一键离家/
+#    1007H运行模式/1008H风量档位/100AH整机模式/100BH无极风量/1011H等离子/1012H IEF/
+#    2000H工厂标志/2001H机型/2002H版本/2003H·2004H最大档位/201CH电辅热/201DH自动循环显示
+# → {"code":0,"message":"Success","data":{"device":{"factoryFlag":"BA","deviceModel":"4CP","version":"0101","deviceAddress":209},"control":{"switchOn":false,"runMode":0,"controlMode":0,"iefPurification":false,"fanGear":0,"fanMaxGear":6,"auxHeat":0,"humidificationOn":false,"dehumidificationOn":false}}}
+curl "http://localhost:8080/api/device/status"
+
+# 2. 快捷开机  ✅ ▸寄存器: W 1001H=1 (单写; 若超净开着由设备端自动联动关闭, 新风与调湿可共存)
+# → {"accepted":true,"power":true}（裸对象，无 code 外层）
+curl -X POST -H "Content-Type: application/json" -d '{"power":true}' "http://localhost:8080/api/device/power"
+
+# 3. 快捷关机  ✅ ▸寄存器: W 1001H-1003H=0,0,0 (10H组写一帧; 关闭不触发设备联动, 需全关)
+# → {"accepted":true,"power":false}
+curl -X POST -H "Content-Type: application/json" -d '{"power":false}' "http://localhost:8080/api/device/power"
+
+# 4. 切换新风运行模式（mode=0~5, v1.22）  ✅ ▸寄存器: W 1007H (前置 R 1001H=1, 否则 HTTP 400)
+# → {"code":0,"message":"success","data":{"accepted":true,"mode":2}}
+curl -X POST -H "Content-Type: application/json" -d '{"mode":2}' "http://localhost:8080/api/device/mode"
+
+# 5. 遍历所有运行模式  ✅ ▸寄存器: W 1007H×6 (0内循环/1内循环·混风/2全热新风·节能新风/3自动/
+#    4旁通·换气/5睡眠; 前置1001H=1; 连续写建议间隔≥3秒等读回缓存刷新, 否则可能HTTP 400)
+for mode in 0 1 2 3 4 5; do
+  curl -s -X POST -H "Content-Type: application/json" -d "{\"mode\":$mode}" "http://localhost:8080/api/device/mode"; echo
+done
+
+# 6. 新风模块开启  ✅ ▸寄存器: W 1001H=1 (单写; 若超净开着设备自动关超净)
+# → {"code":0,"message":"success","data":{"accepted":true,"on":true}}
+curl -X POST -H "Content-Type: application/json" -d '{"on":true}' "http://localhost:8080/api/freshair/switch"
+
+# 7. 新风模块关闭  ✅ ▸寄存器: W 1001H=0
+# → {"code":0,"message":"success","data":{"accepted":true,"on":false}}
+curl -X POST -H "Content-Type: application/json" -d '{"on":false}' "http://localhost:8080/api/freshair/switch"
+
+# 8. 新风开关参数校验（on 缺失应返回 HTTP 400）
+# → {"code":400,"message":"参数 on（布尔）必填"}
+curl -X POST -H "Content-Type: application/json" -d '{}' "http://localhost:8080/api/freshair/switch"
+
+# 9. 查询新风状态  ✅ ▸寄存器: R 1001H新风开关/1007H运行模式/1008H风量档位/100CH新风占空比/
+#    2003H新风最大档/2004H内循环最大档 (纯缓存接口; v1.3.3 起新增 100CH, 移除原 1006H/201DH 字段)
+# → {"freshAirModuleOn":true,"runMode":2,"fanGear":3,"freshFanDutyCycle":65,"fanMaxGear":3,"fanMaxGearRecirc":5}
+curl "http://localhost:8080/api/freshair/status"
+
+# 10. 调湿模块开启  ✅ ▸寄存器: W 1003H=1 (单写; 若超净开着设备自动关超净)
+# → {"code":0,"message":"success","data":{"accepted":true,"on":true}}
+curl -X POST -H "Content-Type: application/json" -d '{"on":true}' "http://localhost:8080/api/humidity-module/switch"
+
+# 11. 调湿模块关闭  ✅ ▸寄存器: W 1003H=0
+# → {"code":0,"message":"success","data":{"accepted":true,"on":false}}
+curl -X POST -H "Content-Type: application/json" -d '{"on":false}' "http://localhost:8080/api/humidity-module/switch"
+
+# 12. 调湿开关参数校验（on 缺失应返回 HTTP 400）
+# → {"code":400,"message":"参数 on（布尔）必填"}
+curl -X POST -H "Content-Type: application/json" -d '{}' "http://localhost:8080/api/humidity-module/switch"
+
+# 13. 查询调湿模块状态  ✅ ▸寄存器: R 1003H/100FH(缓存)
+# → {"humidityModuleOn":true,"targetHumidity":50}
+curl "http://localhost:8080/api/humidity-module/status"
+
+# 14. 超净模式开启  ✅ ▸寄存器: W 1002H=1 (单写; 设备自动关新风/调湿, 联动验证见用例17b)
+# → {"code":0,"message":"success","data":{"accepted":true,"on":true}}
+curl -X POST -H "Content-Type: application/json" -d '{"on":true}' "http://localhost:8080/api/super-pure/switch"
+
+# 15. 超净模式关闭  ✅ ▸寄存器: W 1002H=0
+# → {"code":0,"message":"success","data":{"accepted":true,"on":false}}
+curl -X POST -H "Content-Type: application/json" -d '{"on":false}' "http://localhost:8080/api/super-pure/switch"
+
+# 16. 超净开关参数校验（on 缺失应返回 HTTP 400）
+# → {"code":400,"message":"参数 on（布尔）必填"}
+curl -X POST -H "Content-Type: application/json" -d '{}' "http://localhost:8080/api/super-pure/switch"
+
+# 17. 查询超净模式状态  ✅ ▸寄存器: R 1002H(缓存)
+# → {"superPureOn":true}
+curl "http://localhost:8080/api/super-pure/status"
+
+# 17b. 模块互斥联动验证  ✅ ▸寄存器: W 1002H=1 → R 1001H/1002H/1003H (联动由4CP设备端自动执行,
+#      屏只下发单条命令; 联动生效需数秒, 每步间 sleep 8)
+curl -X POST -H "Content-Type: application/json" -d '{"on":true}' "http://localhost:8080/api/freshair/switch"; sleep 8
+curl -X POST -H "Content-Type: application/json" -d '{"on":true}' "http://localhost:8080/api/super-pure/switch"; sleep 8
+curl "http://localhost:8080/api/freshair/status"    # → freshAirModuleOn:false (新风被设备联动关闭)
+curl "http://localhost:8080/api/super-pure/status"  # → {"superPureOn":true}
+curl "http://localhost:8080/api/modbus/read?address=0x1001&count=3"  # → values:[0,1,0]
+
+# 18. 新风风速设定（档位3）  ✅ ▸寄存器: W 1008H (前置: R 1001H=1 且 1007H∈{0,1,2,4}, 3自动/
+#     5睡眠只读; 档位上限: 模式2受2003H(4CP=3), 模式0/1/4受2004H(≤5); 任一不满足均 HTTP 400)
+# → {"code":0,"message":"success","data":{"accepted":true,"speed":3}}
+curl -X POST -H "Content-Type: application/json" -d '{"speed":3}' "http://localhost:8080/api/freshair/speed"
+
+# 19. 风速参数校验（speed 缺失应返回 HTTP 400）
+# → {"code":400,"message":"参数 speed（整数）必填"}
+curl -X POST -H "Content-Type: application/json" -d '{}' "http://localhost:8080/api/freshair/speed"
+
+# 20. 风速越界校验（speed=9 应返回 HTTP 400）
+# → {"code":400,"message":"风量档位必须在0-6之间"}
+curl -X POST -H "Content-Type: application/json" -d '{"speed":9}' "http://localhost:8080/api/freshair/speed"
+
+# 21. 自动/睡眠模式下设定风速  ▸寄存器: 前置 R 1007H=3(自动)或5(睡眠) → 拒写 1008H (HTTP 400 只读)
+# → {"code":400,"message":"当前运行模式(1007H=3自动/5睡眠)下风量档位只读"}
+curl -X POST -H "Content-Type: application/json" -d '{"speed":2}' "http://localhost:8080/api/freshair/speed"
+
+# 22. 新风运行模式设置（全热新风 mode=2）  ✅ ▸寄存器: W 1007H (前置 R 1001H=1, 否则 HTTP 400)
+# → {"code":0,"message":"success","data":{"accepted":true,"mode":2}}
+curl -X POST -H "Content-Type: application/json" -d '{"mode":2}' "http://localhost:8080/api/freshair/runmode"
+
+# 23. 运行模式参数校验（mode 缺失应返回 HTTP 400）
+# → {"code":400,"message":"参数 mode（整数）必填"}
+curl -X POST -H "Content-Type: application/json" -d '{}' "http://localhost:8080/api/freshair/runmode"
+
+# 24. 运行模式越界校验（mode=9 应返回 HTTP 400; v1.22起合法范围0-5, mode=5睡眠已合法）
+# → {"code":400,"message":"运行模式必须在0-5之间"}
+curl -X POST -H "Content-Type: application/json" -d '{"mode":9}' "http://localhost:8080/api/freshair/runmode"
+
+# 25. 新风关闭时设置运行模式  ▸寄存器: 前置 R 1001H=0 → 拒写 1007H (HTTP 400 只读)
+# → {"code":400,"message":"新风模块未开启，该控制项只读"}
+curl -X POST -H "Content-Type: application/json" -d '{"mode":1}' "http://localhost:8080/api/freshair/runmode"
+
+# 26. 目标湿度设定（50%）  ✅ ▸寄存器: W 100FH=50
+# → {"code":0,"message":"success","data":{"accepted":true,"humidity":50}}
+curl -X POST -H "Content-Type: application/json" -d '{"humidity":50}' "http://localhost:8080/api/humidity-module/target"
+
+# 27. 目标湿度参数校验（humidity 缺失应返回 HTTP 400）
+# → {"code":400,"message":"参数 humidity（整数）必填"}
+curl -X POST -H "Content-Type: application/json" -d '{}' "http://localhost:8080/api/humidity-module/target"
+
+# 28. 目标湿度下界校验（humidity=20 应返回 HTTP 400）
+# → {"code":400,"message":"目标湿度必须在30-70之间"}
+curl -X POST -H "Content-Type: application/json" -d '{"humidity":20}' "http://localhost:8080/api/humidity-module/target"
+
+# 29. 目标湿度上界校验（humidity=80 应返回 HTTP 400）
+# → {"code":400,"message":"目标湿度必须在30-70之间"}
+curl -X POST -H "Content-Type: application/json" -d '{"humidity":80}' "http://localhost:8080/api/humidity-module/target"
+
+# =============================================================================
+# 二、环境数据 API（真实 Modbus 读取）
+# =============================================================================
+
+# 6. 获取室内/室外/送风环境数据  ✅ ▸寄存器: R 200DH-201AH 共14个(接口纯读缓存; 数据来自
+#    周期采集 04H 输入寄存器整块 2000H-203BH, 本接口只消费其中 200DH-201AH)
+#    indoorReturnAir (RA1 室内回风): 200DH 温度(有符号÷10,℃) / 200EH 湿度(%) / 200FH PM2.5 / 2010H CO2(ppm)
+#    outdoorAir      (OA 室外新风):   2011H 温度 / 2012H 湿度 / 2013H PM2.5 / 2014H CO2
+#    supplyAir       (SA 送风):       2015H 温度 / 2016H 湿度 / 2017H PM2.5 / 2018H CO2
+#    airQuality:                     2019H TVOC / 201AH 甲醛 (均原值÷100, mg/m³)
+# → {"code":200,"message":"Success","data":{"indoorReturnAir":{...},"outdoorAir":{...},"supplyAir":{...},"airQuality":{"tvoc":...,"formaldehyde":...}}}
+curl "http://localhost:8080/api/idle/environment"
+
+# 7. 用 jq 提取关键环境字段
+curl -s "http://localhost:8080/api/idle/environment" | jq '.data | .indoorReturnAir, .outdoorAir, .airQuality'
+
+# 8. 获取室内外空气评价提醒（待机页面显示）  ✅ ▸寄存器: R 200FH(室内PM2.5)/2013H(室外PM2.5)(缓存)
+# → {"code":200,"message":"Success","data":{"indoorPM25":<int>,"outdoorPM25":<int>,"indoorLevel":"优|良|中|差","outdoorLevel":"优|良|中|差","reminder":"<文案或空串>"}}
+#    reminder 依室内外等级组合而定（共7种情形；室外为优/良时为空串）；分级 优0-35/良36-75/中76-150/差151-999。详见 docs/HTTP_API.md
+curl "http://localhost:8080/api/idle/air-quality-reminder"
+
+# 9. 用 jq 提取提醒文案与室内外等级
+curl -s "http://localhost:8080/api/idle/air-quality-reminder" | jq '.data | {reminder, indoorLevel, outdoorLevel, indoorPM25, outdoorPM25}'
+
+# =============================================================================
+# 三、屏幕控制 API（本机 sysfs/ioctl）
+# =============================================================================
+
+# 10. 查询背光亮度  ✅
+# → {"min":0,"max":255,"current":128,"available":true,"pending":false,"success":true,"error":""}
+curl "http://localhost:8080/getScreenBrightness"
+
+# 11. 设置背光亮度  ✅
+# → {"min":0,"max":255,"accepted":true}；实际值随后从运行快照读取
+curl -X POST -H "Content-Type: application/json" -d '{"brightness":200}' "http://localhost:8080/setScreenBrightness"
+
+# 12. 屏幕休眠  ✅
+# → {"sleep":1,"success":true}
+curl -X POST -H "Content-Type: application/json" -d '{"sleep":1}' "http://localhost:8080/setScreenSleep"
+
+# 13. 屏幕唤醒  ✅
+# → {"sleep":0,"success":true}
+curl -X POST -H "Content-Type: application/json" -d '{"sleep":0}' "http://localhost:8080/setScreenSleep"
+
+# =============================================================================
+# 四、Modbus 寄存器 API
+# =============================================================================
+
+# 14. 读保持寄存器（十六进制地址）  ✅ ▸寄存器: R 1000H(03H; 有效范围 1000H-103EH)
+# → {"address":"0x1000","addressDec":4096,"count":1,"values":[...],"hexValues":["0x..."]}
+curl "http://localhost:8080/api/modbus/read?address=0x1000"
+
+# 15. 读保持寄存器（十进制地址）  ✅ ▸寄存器: R 1000H(=十进制4096)
+curl "http://localhost:8080/api/modbus/read?address=4096"
+
+# 16. 连续读多个保持寄存器  ✅ ▸寄存器: R 1000H-1007H(count=8)
+curl "http://localhost:8080/api/modbus/read?address=0x1000&count=8"
+
+# 17. 写单个保持寄存器（十六进制）  ✅ ▸寄存器: W 1000H=1(06H)
+# → {"address":"0x1000","addressDec":4096,"value":1,"hexValue":"0x1","accepted":true}
+curl -X POST -H "Content-Type: application/json" -d '{"address":"0x1000","value":1}' "http://localhost:8080/api/modbus/write"
+
+# 18. 写单个保持寄存器（十进制数字）  ✅ ▸寄存器: W 1000H(=十进制4096)=1
+curl -X POST -H "Content-Type: application/json" -d '{"address":4096,"value":1}' "http://localhost:8080/api/modbus/write"
+
+# 19. 批量写寄存器  ❌ ▸寄存器: [模拟] 1016H-101EH 9个值(未真正下发10H)
+# → {"code":0,"message":"success","data":{"address":4118,"count":9,"success":true,"timestamp":"..."}}
+curl -X POST -H "Content-Type: application/json" -d '{"address":"0x1016","values":[2026,8,5,14,30,0,6,0,0]}' "http://localhost:8080/api/modbus/write-multiple"
+
+# 20. 读离散输入  ❌ ▸寄存器: [模拟] 离散输入地址0/32(未调用02H, 返回全0)
+# → {"code":0,"message":"success","data":{"address":0,"count":16,"values":[0,...],"bits":{...}}}
+curl "http://localhost:8080/api/modbus/read-discrete?address=0&count=16"
+curl "http://localhost:8080/api/modbus/read-discrete?address=32&count=13"
+
+# =============================================================================
+# 五、测试与元信息 API
+# =============================================================================
+
+# 21. Ping  ✅  → {"pong":true}（裸对象，无 code 外层）
+curl "http://localhost:8080/api/ping"
+
+# 22. 健康检查  ✅  → {"status":"ok","server":"running","port":8080,"uptime":"unknown"}
+curl "http://localhost:8080/api/health"
+
+# 23. 版本信息  ✅  → {"version":"1.3.4","name":"BeiAng8Panel","description":"..."}（随 BEIANG_8PANEL_VERSION 更新）
+curl "http://localhost:8080/api/version"
+
+# 24. 已注册路由列表  ✅  → ["GET /api/device/status", ...]（裸数组）
+curl "http://localhost:8080/api/paths"
+
+# 25. 协议信息  ✅  → {"code":0,"message":"success","data":{"protocolVersion":"V1.21","deviceAddress":209,...}}
+curl "http://localhost:8080/api/protocol/info"
+
+# =============================================================================
+# 六、定位与天气 API（未实装——待 WiFi 模组 EMC6069 提供定位/天气接口后实装）
+# =============================================================================
+
+# 26. 区域信息  ❌（待WiFi模组接口后实装）
+#    现实现为本机出口IP + pconline 的临时方案，非产品最终方案；
+#    设备联网走 WiFi 模组，实测返回 HTTP 500
+# → {"code":500,"message":"请求IP定位API失败: Error"}（待实装，测试时可跳过）
+curl "http://localhost:8080/getLocation"
+
+# 27. 实时天气  ❌（待WiFi模组接口后实装）
+#    现实现依赖出口IP定位 + 和风天气 apiKey（FactoryConfig.json 默认已移除该块）；
+#    设备上实测返回 HTTP 500
+# → {"code":500,"message":"获取公网IP失败"}（待实装，测试时可跳过）
+curl "http://localhost:8080/getWeather"
+
+# =============================================================================
+# 七、扩展模拟接口（返回固定模拟数据 / 模拟成功）
+# =============================================================================
+
+# 29. 设备能力  ⚠️（能力位读离散 3000H-3001H 周期缓存; v1.4.2 起 data 另含
+#     hasAirConditioner/hasFloorHeating 产品级静态 false 字段, 见用例 109）
+curl "http://localhost:8080/api/device/capabilities"
+
+# 30. 故障状态  ⚠️
+curl "http://localhost:8080/api/device/faults"
+
+# 31. 关机下空气检测设置  ⚠️
+curl "http://localhost:8080/api/device/off-mode/air-quality"
+
+# 32. 加湿系统状态  ⚠️
+curl "http://localhost:8080/api/humidification/status"
+
+# 33. RTC 时间  ✅ ▸寄存器: R 101BH-101FH(缓存; 周期采集03H块覆盖)
+# → {"code":0,"message":"success","data":{"year":2026,"month":9,"day":3,"hour":9,"minute":38,"second":55,"week":4,"format":0,"formatted":"2026-09-03 09:38:55"}}
+curl "http://localhost:8080/api/rtc/time"
+
+# 34. 设置 RTC 时间  ✅ ▸寄存器: W 101BH-101FH 共5个(10H批量写; 1016H-101AH预留, v1.22布局)
+#     打包: 101BH=年 | 101CH=月<<8|日 | 101DH=时<<8|分 | 101EH=秒<<8|星期 | 101FH=格式<<8|对齐
+#     请求体支持 "time"（"YYYY-M-D H:M:S"，无前导零亦可）或 "timestamp"；
+#     可选 "format"：0=24小时制(默认) / 1=12小时制(由前端设置, 时间值仍按24h传入,
+#     12h打包(时1-12+bit7=PM)由后端换算; GET 在12h制下 hour 归一为24h并附 meridiem)
+#     严格日历校验: 非法日期(如 2026-2-30、平年2-29)返回 code=1 且不写寄存器
+curl -X POST -H "Content-Type: application/json" -d '{"time":"2026-8-7 15:31:49"}' "http://localhost:8080/api/rtc/time"
+curl -X POST -H "Content-Type: application/json" -d '{"timestamp":1722900000}' "http://localhost:8080/api/rtc/time"
+curl -X POST -H "Content-Type: application/json" -d '{"time":"2026-9-3 13:05:07","format":1}' "http://localhost:8080/api/rtc/time"  # → 12h: 101DH=0x8105(1PM), 101FH=0x0100
+curl -X POST -H "Content-Type: application/json" -d '{"time":"2026-2-30 10:00:00"}' "http://localhost:8080/api/rtc/time"            # → code:1 非法日期, 不写寄存器
+curl -X POST -H "Content-Type: application/json" -d '{"time":"2026-9-3 12:00:00","format":2}' "http://localhost:8080/api/rtc/time"  # → code:1 invalid format
+
+# 35. 设置关机检测参数（模拟成功）  ❌  interval≥30, runtime 1-5
+curl -X POST -H "Content-Type: application/json" -d '{"enabled":true,"interval":60,"runtime":2}' "http://localhost:8080/api/device/off-mode/air-quality"
+
+# 36. 设置加湿系统参数（模拟成功）  ❌
+curl -X POST -H "Content-Type: application/json" -d '{"pumpOnTime":30,"pumpOffTime":60,"drainOnTime":10,"drainCount":3}' "http://localhost:8080/api/humidification/control"
+
+# 37. 清除故障  ❌  faultCodes 会原样回显到 clearedFaults
+curl -X POST -H "Content-Type: application/json" -d '{"faultCodes":[32,33]}' "http://localhost:8080/api/device/faults/clear"
+curl -X POST -H "Content-Type: application/json" -d '{"all":true}' "http://localhost:8080/api/device/faults/clear"
+
+# 38. 清除风机运行时间（模拟成功）  ❌
+curl -X POST -H "Content-Type: application/json" -d '{"fan":"fan1"}' "http://localhost:8080/api/maintenance/fan/clear"
+curl -X POST -H "Content-Type: application/json" -d '{"fan":"all"}' "http://localhost:8080/api/maintenance/fan/clear"
+
+# =============================================================================
+# 八、传感器数据 API（模拟）
+# =============================================================================
+
+# 39. 全部传感器  ⚠️  → 固定模拟值；如需真实数据请用 /api/idle/environment
+curl "http://localhost:8080/getSensors"
+
+# 40. 空气质量  ⚠️
+curl "http://localhost:8080/getAirQuality"
+
+# 41. 温湿度  ✅  → {"temperature":26.6,"humidity":49.7}（裸对象，真实 GXHTC3 sysfs hwmon；读取失败回退 25.5/60.0）
+curl "http://localhost:8080/getTempHumi"
+
+# =============================================================================
+# 九、未实现桩接口（均返回 code:1006，对应 docs/HTTP_API.md 第三节）
+# 下列接口可访问但功能未实现。预期响应示例：
+#   → {"code":1006,"message":"Feature not implemented: getManualModeData"}
+# =============================================================================
+
+# 42. 手动模式
+curl "http://localhost:8080/api/manual/status"                                              # → 1006 getManualModeData
+curl -X POST -H "Content-Type: application/json" -d '{"fanSpeed":3}' "http://localhost:8080/api/manual/control"   # → 1006 setManualModeParams
+
+# 43. 智能模式
+curl "http://localhost:8080/api/smart/status"                                               # → 1006 getSmartModeData
+curl -X POST -H "Content-Type: application/json" -d '{"scene":1}' "http://localhost:8080/api/smart/control"       # → 1006 setSmartModeParams
+
+# 44. 待机模式
+curl "http://localhost:8080/api/idle/status"                                                # → 1006 getIdlePageData
+curl -X POST -H "Content-Type: application/json" -d '{}' "http://localhost:8080/api/idle/control"                 # → 1006 wakeUp
+
+# 45. 系统设置
+curl "http://localhost:8080/api/system/settings"                                            # → 1006 getSystemSettings
+curl -X POST -H "Content-Type: application/json" -d '{"display":{"brightness":80}}' "http://localhost:8080/api/system/settings"  # → 1006 setSystemSettings
+
+# 46. 设备维护（滤网）
+curl "http://localhost:8080/api/maintenance/status"                                         # → 1006 getFilterStatus
+curl -X POST -H "Content-Type: application/json" -d '{"filterType":"filter1"}' "http://localhost:8080/api/maintenance/filter/reset"  # → 1006 resetFilterLife
+
+# 47. 工程模式  ▸寄存器: 无(body中address:256仅为占位参数)
+curl "http://localhost:8080/api/engineering/status"                                         # → 1006 getEngineeringModeData
+# engineering/control 是内联占位（非 1006）：→ {"message":"工程模式控制暂未实现"}
+curl -X POST -H "Content-Type: application/json" -d '{"operation":"read","address":256}' "http://localhost:8080/api/engineering/control"
+
+# 48. 历史趋势  → 1006 getStatisticsData（会解析 type/start/end 但仍返回未实现）
+curl "http://localhost:8080/api/history/data?type=pm25&start=1620000000000&end=1620008639999"
+
+# =============================================================================
+# 十、WiFi 管理 API
+# =============================================================================
+
+# 49. WiFi 列表  ✅  → [{"ssid":"TestNetwork","rssi":-45,"secured":true}]（当前扫描缓存，裸数组）
+curl "http://localhost:8080/getWifiInfo"
+
+# 50. 已连接 WiFi  ✅  → {"available":true,"enabled":true,"connected":true,"ssid":"TestNetwork","ip":"192.168.1.100","rssi":-45,"state":"connected","pending":false,"error":"","timestamp":...}
+curl "http://localhost:8080/getConnectedWifi"
+
+# 51. 开关 WiFi  ✅  → {"enabled":true,"open":true,"accepted":true}
+curl -X POST -H "Content-Type: application/json" -d '{"open":true}' "http://localhost:8080/wifiOpen"
+
+# 52. 连接 WiFi  ✅  → {"ssid":"TestNetwork","accepted":true}；连接结果随后从运行快照读取
+curl -X POST -H "Content-Type: application/json" -d '{"ssid":"TestNetwork","password":"test123456"}' "http://localhost:8080/connectWifi"
+
+# 53. 断开 WiFi  ✅  → {"ssid":"TestNetwork","accepted":true}；断开结果随后从运行快照读取
+curl -X POST -H "Content-Type: application/json" -d '{"ssid":"TestNetwork"}' "http://localhost:8080/disconnectWifi"
+
+# =============================================================================
+# 十一、硬件外设 API（模拟 / 部分）
+# =============================================================================
+
+# 54. 人感雷达（TRMK222 UART，状态文件+命令文件）  ✅
+curl "http://localhost:8080/getHumanPresenceRadar"                                          # → {"enable":true,"online":true,...,"direction":"none"}
+curl -X POST -H "Content-Type: application/json" -d '{"enable":true}' "http://localhost:8080/setHumanPresenceRadar"   # → {"enable":true,"success":true}
+curl -X POST -H "Content-Type: application/json" -d '{"enable":false}' "http://localhost:8080/setHumanPresenceRadar"  # → {"enable":false,"success":true}
+
+# 55. AQI 指示灯（9路RGB 呼吸效果，rgb_daemon FIFO，回退 /sys/class/led/multi_brightness）  ✅
+#      level 0~5：0=关闭  1=绿(05DF72)  2=黄绿(C2DF05)  3=黄(F59E0B)  4=红(EF4444)  5=红·快速呼吸(EF4444, 严重故障)
+#      PM2.5 自动分级: <=35→1  35~75→2  75~150→3  >150→4
+#      显示效果: BREATHE 3秒周期呼吸; level=5 为 FAST_BREATHE 1秒周期快速呼吸; level=0 熄灭
+#      rgb_daemon 不在(含 FIFO 残留): 直接熄灭并上报关闭, 不做常亮回退
+#      非法 level 返回 HTTP 400；颜色格式 RRGGBB（十六进制，无需 0x 前缀）
+# → {"enabled":true,"level":2,"color":"C2DF05","accepted":true}；实际值随后从运行快照读取
+curl -X POST -H "Content-Type: application/json" -d '{"pm25":28}' "http://localhost:8080/setAQILed"    # → L1 绿呼吸
+curl -X POST -H "Content-Type: application/json" -d '{"pm25":120}' "http://localhost:8080/setAQILed"   # → L3 黄呼吸
+curl -X POST -H "Content-Type: application/json" -d '{"level":0}' "http://localhost:8080/setAQILed"
+curl -X POST -H "Content-Type: application/json" -d '{"level":1}' "http://localhost:8080/setAQILed"
+curl -X POST -H "Content-Type: application/json" -d '{"level":2}' "http://localhost:8080/setAQILed"
+curl -X POST -H "Content-Type: application/json" -d '{"level":3}' "http://localhost:8080/setAQILed"
+curl -X POST -H "Content-Type: application/json" -d '{"level":4}' "http://localhost:8080/setAQILed"
+curl -X POST -H "Content-Type: application/json" -d '{"level":5}' "http://localhost:8080/setAQILed"    # 严重故障: 红色快速呼吸
+# 非法 level（9）→ HTTP 400
+curl -X POST -H "Content-Type: application/json" -d '{"level":9}' "http://localhost:8080/setAQILed"
+
+# 56. 扬声器  ❌
+curl -X POST -H "Content-Type: application/json" -d '{"enable":true}' "http://localhost:8080/setSpeaker"
+curl -X POST -H "Content-Type: application/json" -d '{"enable":false}' "http://localhost:8080/setSpeaker"
+
+# 57. （已删除）旧版裸 RTC 接口 /getRTCTime 与 /setRTCTime 已下线，
+#      RTC 读写统一使用封装接口 /api/rtc/time（见用例 33、34）
+
+# =============================================================================
+# 十二、边界与错误测试（验证真实参数校验）
+# =============================================================================
+
+# 58. modbus/read 缺 address  → HTTP 400 {"code":400,"message":"缺少必需参数: address"}
+curl -i "http://localhost:8080/api/modbus/read"
+
+# 59. modbus/read count 超范围  → HTTP 400
+curl -i "http://localhost:8080/api/modbus/read?address=0x1000&count=200"
+
+# 60. modbus/write 缺 value  → HTTP 400
+curl -i -X POST -H "Content-Type: application/json" -d '{"address":"0x1000"}' "http://localhost:8080/api/modbus/write"
+
+# 61. read-discrete count 超范围  → HTTP 400
+curl -i "http://localhost:8080/api/modbus/read-discrete?address=0&count=100"
+
+# 62. device/mode 越界  → code:1001 {"code":1001,...,"parameter":"mode"}
+curl -X POST -H "Content-Type: application/json" -d '{"mode":9}' "http://localhost:8080/api/device/mode"
+
+# 63. fan/clear 非法风机标识  → HTTP 400
+curl -i -X POST -H "Content-Type: application/json" -d '{"fan":"fan9"}' "http://localhost:8080/api/maintenance/fan/clear"
+
+# 64. faults/clear 缺参数  → HTTP 400
+curl -i -X POST -H "Content-Type: application/json" -d '{}' "http://localhost:8080/api/device/faults/clear"
+
+# 65. off-mode interval 过小  → HTTP 400
+curl -i -X POST -H "Content-Type: application/json" -d '{"enabled":true,"interval":10,"runtime":2}' "http://localhost:8080/api/device/off-mode/air-quality"
+
+# 66. humidification 参数越界  → HTTP 400
+curl -i -X POST -H "Content-Type: application/json" -d '{"pumpOnTime":1,"pumpOffTime":60,"drainOnTime":10,"drainCount":3}' "http://localhost:8080/api/humidification/control"
+
+# 67. modbus/read 非法地址格式（纯非数字串才走异常分支；注意 "0xZZ" 因 stoi 静默返回 0 而不会报错）
+#    → HTTP 400 {"code":400,"message":"参数格式错误: stoi"}
+curl -i "http://localhost:8080/api/modbus/read?address=ZZZ"
+
+# =============================================================================
+# 十三b、v1.22 语义写接口组用例（对应 HTTP_API.md §12a-§16、§8.1、§12 OTA）
+# 均为"参数校验 → 写命令队列(06H/10H) → 写后回读确认"模式; 成功响应为裸对象 {"accepted":true,...}
+# (无 code 外层), 400/503 错误为 {"code":...} 封装(2026-09-03 板上实测)
+# =============================================================================
+
+# 72. 加湿开关  ✅ ▸寄存器: W 1004H (前置 R 1003H=0, 调湿开启时只读→400)
+# → {"accepted":true,"on":true}（裸对象）
+curl -X POST -H "Content-Type: application/json" -d '{"on":true}' "http://localhost:8080/api/humidity-module/humidify"
+
+# 73. 除湿开关  ✅ ▸寄存器: W 1005H (前置同 72)
+# → {"accepted":true,"on":true}（裸对象）
+curl -X POST -H "Content-Type: application/json" -d '{"on":true}' "http://localhost:8080/api/humidity-module/dehumidify"
+
+# 74. 排风风量档位(协议预留)  ✅ ▸寄存器: W 1009H (仅 0-6 校验)
+# → {"accepted":true,"speed":2}（裸对象）
+curl -X POST -H "Content-Type: application/json" -d '{"speed":2}' "http://localhost:8080/api/freshair/exhaust-speed"
+
+# 75. 一键离家开关  ✅ ▸寄存器: W 1006H (v1.22 由手动/自动改为一键离家)
+# → {"accepted":true,"on":true}（裸对象）
+curl -X POST -H "Content-Type: application/json" -d '{"on":true}' "http://localhost:8080/api/device/leave-home"
+
+# 75b. 查询一键离家状态  ✅ ▸寄存器: R 1006H(缓存; v1.3.9 新增)
+# → {"leaveHomeOn":true}（裸对象）
+# ⚠️ 实测注意: 4CP 设备固件会对 1006H 自主翻转(无写操作寄存器也会 0↔1 变化),
+#    读值波动时先连续裸读寄存器确认是否设备侧行为, 勿误判面板缓存失效
+curl "http://localhost:8080/api/device/leave-home/status"
+
+# 76. 整机运行模式  ✅ ▸寄存器: W 100AH (v1.22 新增: 0无/手动 1标准 2会客 3干爽 4温润 5旅行)
+# → {"accepted":true,"mode":1}（裸对象）
+# ⚠️ 设备端场景异步落位: 连续切换模式时新写会被缓冲延后应用, 建议间隔数秒+读回确认
+curl -X POST -H "Content-Type: application/json" -d '{"mode":1}' "http://localhost:8080/api/device/unit-run-mode"
+
+# 76b. 查询整机运行模式  ✅ ▸寄存器: R 100AH(缓存; v1.3.10 新增)
+# → {"wholeUnitRunMode":1}（裸对象）
+curl "http://localhost:8080/api/device/unit-run-mode/status"
+
+# 77. 无极风量控制开关  ✅ ▸寄存器: W 100BH
+curl -X POST -H "Content-Type: application/json" -d '{"on":true}' "http://localhost:8080/api/freshair/stepless"
+
+# 78. 风量占空比(通道可选, 至少一项; 未提供的通道不写)  ✅ ▸寄存器: W 100CH/100DH/100EH (0-100)
+# → {"accepted":true,"count":2}（裸对象）
+curl -X POST -H "Content-Type: application/json" -d '{"fresh":60,"exhaust":50}' "http://localhost:8080/api/freshair/duty"
+
+# 79. 目标温度设定(×10 存储)  ✅ ▸寄存器: W 1010H (16.0-31.0℃ → 160-310)
+# → {"accepted":true,"temperature":25.0,"raw":250}（裸对象）
+curl -X POST -H "Content-Type: application/json" -d '{"temperature":25.0}' "http://localhost:8080/api/device/target-temperature"
+
+# 80. 等离子消毒开关  ✅ ▸寄存器: W 1011H
+curl -X POST -H "Content-Type: application/json" -d '{"enabled":true}' "http://localhost:8080/api/device/plasma-disinfect"
+
+# 81. 电辅热选择(设定值; 运行状态读 201CH)  ✅ ▸寄存器: W 1013H (0关/1辅热1/2辅热2/3辅热1+2)
+curl -X POST -H "Content-Type: application/json" -d '{"mode":1}' "http://localhost:8080/api/device/aux-heat"
+
+# 82. 加湿/除湿强度  ✅ ▸寄存器: W 1014H (0弱/1中/2强)
+curl -X POST -H "Content-Type: application/json" -d '{"intensity":1}' "http://localhost:8080/api/humidity-module/intensity"
+
+# 83. SA风量与增压风机比例(×10 存储)  ✅ ▸寄存器: W 1015H
+# → {"accepted":true,"ratio":1.8,"raw":18}（裸对象）
+curl -X POST -H "Content-Type: application/json" -d '{"ratio":1.8}' "http://localhost:8080/api/device/sa-fan-ratio"
+
+# 84. 关机后延时关风机  ✅ ▸寄存器: W 1020H (0-65535 分钟)
+curl -X POST -H "Content-Type: application/json" -d '{"minutes":5}' "http://localhost:8080/api/device/fan-delay-off"
+
+# 85. 压缩机设定(未进厂测模式时其他组同样400) —— 真实写压缩机参数, 生产环境谨慎执行
+# ▸寄存器: W 1028H-102AH (开度0-500/频率0-90Hz/上限60-95Hz, 至少一项)
+# → {"accepted":true,"updated":["frequencySet"]}（裸对象）
+curl -X POST -H "Content-Type: application/json" -d '{"frequencySet":60}' "http://localhost:8080/api/device/compressor"
+
+# 86. 厂测模式退出(安全演示; 开启需 confirm:true, 业务勿用)  ✅ ▸寄存器: W 1030H (100=测试/0=退出)
+curl -X POST -H "Content-Type: application/json" -d '{"enabled":false}' "http://localhost:8080/api/device/factory-test"
+
+# 86b. 查询厂测模式状态  ✅ ▸寄存器: R 1030H(缓存; v1.3.11 新增)
+# → {"factoryTestMode":0,"factoryTestActive":false}（裸对象; active=1030H==100,
+#    厂测锁接口 87/88/89/92/93 的可写性由此决定）
+curl "http://localhost:8080/api/device/factory-test/status"
+
+# 87. 高低压开关(厂测锁)  🔒 ▸寄存器: W 102BH/102CH (未进厂测模式 → HTTP 400)
+# → {"code":400,"message":"厂测模式未开启(1030H≠100)，该寄存器只读"}
+curl -X POST -H "Content-Type: application/json" -d '{"switch":"high","on":true}' "http://localhost:8080/api/device/pressure-switch"
+
+# 88. 厂测 FAN 风量设定(厂测锁)  🔒 ▸寄存器: W 1038H-103BH (未进厂测 → 400)
+curl -X POST -H "Content-Type: application/json" -d '{"fan":1,"value":600}' "http://localhost:8080/api/factory/fan"
+
+# 89. 厂测阀门状态设定(厂测锁)  🔒 ▸寄存器: W 103CH-103EH (0关/1半开/2全开; 未进厂测 → 400)
+curl -X POST -H "Content-Type: application/json" -d '{"valve":1,"status":2}' "http://localhost:8080/api/factory/valve"
+
+# 90. 滤网/保养剩余时间复位(filter1-3/humidityModule/ief 单位小时, wholeUnit 单位天)
+# ▸寄存器: W 1031H-1036H —— 会真实复位保养计时, 按需执行
+curl -X POST -H "Content-Type: application/json" -d '{"filter1":2000}' "http://localhost:8080/api/maintenance/filter"
+
+# 91. 恢复出厂(高危只写) —— 仅验证 confirm 缺失被拒, 严禁实际执行
+# ▸寄存器: W 1040H(写1) → 缺 confirm → HTTP 400
+curl -i -X POST -H "Content-Type: application/json" -d '{}' "http://localhost:8080/api/device/factory-reset"
+
+# 92. FAN 内外循环档位风量标定(厂测锁, 产线用)  🔒 ▸寄存器: W 1041H-1070H (未进厂测 → 400)
+curl -X POST -H "Content-Type: application/json" -d '{"fan":1,"circulation":"external","gear":1,"value":300}' "http://localhost:8080/api/factory/fan-flow"
+
+# 93. 风阀方向/步数设定(厂测锁)  🔒 ▸寄存器: W 1071H-1076H (未进厂测 → 400)
+curl -X POST -H "Content-Type: application/json" -d '{"damper":1,"direction":0,"steps":2000}' "http://localhost:8080/api/factory/damper"
+
+# 94. RS485 通讯开关(全停语义; 状态持久化 /mnt/UDISK/rs485_enable)  ✅
+#    关闭会停止轮询/命令队列/定时调度, 测试后务必恢复开启
+curl "http://localhost:8080/api/local-device/rs485/enabled"                       # → {"enabled":true}
+curl -X POST -H "Content-Type: application/json" -d '{"enabled":false}' "http://localhost:8080/api/local-device/rs485/enabled"
+sleep 1; curl "http://localhost:8080/api/modbus/read?address=0x1000"              # → 503 RS485通讯已关闭(快速返回)
+curl -X POST -H "Content-Type: application/json" -d '{"enabled":true}' "http://localhost:8080/api/local-device/rs485/enabled"   # 恢复
+
+# 95. OTA 状态总览  ✅ → {"available":true,"canUpdate":false,"state":"idle","currentVersion":"BAFreshAir8C-0.0.4",...}（裸对象）
+curl "http://localhost:8080/api/ota/status"
+
+# 96. OTA 立即更新(无可用更新时 → HTTP 409 {"code":409,"message":"当前无可用更新"}, 安全)
+curl -i -X POST -H "Content-Type: application/json" -d '{}' "http://localhost:8080/api/ota/start"
+
+# 97. OTA 取消(下次再说/退出)
+curl -X POST -H "Content-Type: application/json" -d '{}' "http://localhost:8080/api/ota/cancel"
+
+# =============================================================================
+# 十三、连通性与快速自检
+# =============================================================================
+
+# 68. 服务连通性自检（health + version + ping）
+curl -s "http://localhost:8080/api/health"; echo
+curl -s "http://localhost:8080/api/version"; echo
+curl -s "http://localhost:8080/api/ping"; echo
+
+# 69. 真实数据链路自检（environment + modbus 单寄存器）
+curl -s "http://localhost:8080/api/idle/environment" | jq '.code, .data.indoorReturnAir'
+curl -s "http://localhost:8080/api/modbus/read?address=0x1000&count=1" | jq '.values'
+
+# 70. 响应耗时
+time curl -s "http://localhost:8080/api/device/status" -o /dev/null
+
+# 71. 并发请求（HTTP 服务器线程数为 4）
+for i in 1 2 3 4 5; do curl -s "http://localhost:8080/api/idle/environment" -o /dev/null -w "%{http_code}\n" & done; wait
+
+# =============================================================================
+# 十四、一键回归脚本（仅覆盖真实可用接口）
+# =============================================================================
+
+cat << 'EOF' > beiang_smoke.sh
+#!/bin/bash
+# BeiAng8Panel 真实接口冒烟测试
+BASE="http://localhost:8080"
+pass=0; fail=0
+check() {  # $1=name  $2=expected_substr  $3=response
+  if echo "$3" | grep -q "$2"; then echo "[OK]   $1"; pass=$((pass+1));
+  else echo "[FAIL] $1 (未找到 '$2')"; fail=$((fail+1)); fi
+}
+
+check "ping"            '"pong":true'      "$(curl -s $BASE/api/ping)"
+check "health"          '"status"'         "$(curl -s $BASE/api/health)"
+check "version"         '"version"'        "$(curl -s $BASE/api/version)"
+check "device/status"   '"control"'        "$(curl -s $BASE/api/device/status)"
+check "device/power"    '"accepted"'       "$(curl -s -X POST -H 'Content-Type: application/json' -d '{"power":true}' $BASE/api/device/power)"
+check "device/mode"     '"accepted"'       "$(curl -s -X POST -H 'Content-Type: application/json' -d '{"mode":2}' $BASE/api/device/mode)"
+check "environment"     '"indoorReturnAir"' "$(curl -s $BASE/api/idle/environment)"
+check "reminder"        '"reminder"'       "$(curl -s $BASE/api/idle/air-quality-reminder)"
+check "modbus/read"     '"values"'         "$(curl -s "$BASE/api/modbus/read?address=0x1000&count=1")"
+check "getScreenBrightness" '"current"'    "$(curl -s $BASE/getScreenBrightness)"
+check "setAQILed"        '"color"'          "$(curl -s -X POST -H 'Content-Type: application/json' -d '{"level":2}' $BASE/setAQILed)"
+check "protocol/info"   '"protocolVersion"' "$(curl -s $BASE/api/protocol/info)"
+check "stub manual"     '"code":1006'      "$(curl -s $BASE/api/manual/status)"
+
+echo "----- 通过: $pass / 失败: $fail -----"
+EOF
+chmod +x beiang_smoke.sh
+./beiang_smoke.sh
+
+# =============================================================================
+# 十五、历史趋势 API（v1.4.0 新增；采样源 200DH-2014H，落盘 UDISK）
+# =============================================================================
+
+# 98. 历史趋势-按日 ▸寄存器: R 200DH-2014H(周期采样缓存落盘)
+# → wrapped {"code":0,"data":{"range":"day","intervalSeconds":7200,"anchorDate":"<今天>",
+#   "timestamps":[12项,每桶起始UTC秒,末桶=最近整2小时(进行中)],"indoor":{...},"outdoor":{...},
+#   "sampleCount":N,"storageError":null},...} 数组内 null=该桶无样本; 温度1位小数
+curl -s "http://localhost:8080/api/history/trend?range=day" | jq '.code, .data.intervalSeconds, (.data.timestamps|length), .data.indoor.temperature'
+
+# 99. 历史趋势-按周/按月（7 桶 / 当月1号至今天数桶）
+# → week: intervalSeconds=86400, 数组各 7 项; month: 桶数=今天日号
+curl -s "http://localhost:8080/api/history/trend?range=week" | jq '(.data.timestamps|length), .data.indoor.pm25'
+curl -s "http://localhost:8080/api/history/trend?range=month" | jq '.data.anchorDate, (.data.timestamps|length)'
+
+# 100. 历史趋势-历史日锚点（预留回看; 无数据日全 null）
+# → anchorDate 回显锚点, 序列全 null, sampleCount=0, 仍 HTTP 200
+curl -s "http://localhost:8080/api/history/trend?range=day&date=2026-01-01" | jq '.data.anchorDate, .data.sampleCount'
+
+# 101. 历史趋势-参数校验
+# → HTTP 400 {"code":400,"message":"range 参数必须为 day/week/month"}
+curl -s -w "\nHTTP %{http_code}\n" "http://localhost:8080/api/history/trend?range=hour"
+# → HTTP 400 {"code":400,"message":"date 参数格式必须为 YYYY-MM-DD"}
+curl -s -w "\nHTTP %{http_code}\n" "http://localhost:8080/api/history/trend?range=day&date=2026-02-30"
+
+# 102. 历史采样与存储状态（诊断; storageBytes = 16 + 18×totalSamples）
+# → {"code":0,"data":{"enabled":true,"dataDir":"/mnt/UDISK/beiang8panel/history",
+#   "sampleIntervalSec":600,"retentionDays":370,"totalSamples":N,"oldestDate":YYYYMMDD,
+#   "newestDate":YYYYMMDD,"lastSampleTime":"...|null","storageBytes":N,"storageError":null}}
+curl -s "http://localhost:8080/api/history/status" | jq .
+
+# 103. 旧桩已移除 + 落盘核对
+# → HTTP 404 (v1.4.0 移除 /api/history/data)
+curl -s -o /dev/null -w "HTTP %{http_code}\n" "http://localhost:8080/api/history/data"
+# → UDISK 日文件按采样间隔增长(600s 配置下每 10 分钟 +18 字节)
+adb shell ls -l /mnt/UDISK/beiang8panel/history/
+
+# =============================================================================
+# 十六、内存水位监控 API（v1.4.1 新增; MemAvailable 分级处置）
+# =============================================================================
+
+# 104. 内存监控状态 ▸数据源: /proc/meminfo MemAvailable
+# → wrapped {"code":0,"data":{"enabled":true,"memAvailableMB":...,"level":"normal|warn|restart|reboot",
+#   "restartAppCount":N,"events":[最近8条]},...}
+curl -s "http://localhost:8080/api/memwatch/status" | jq '.data.level, .data.memAvailableMB, .data.events'
+
+# 105. 板上实测量当前水位对照
+curl -s "http://localhost:8080/api/memwatch/status" | jq '.data.memAvailableKB'
+adb shell "grep MemAvailable /proc/meminfo"   # 两值应一致
+
+# 106. 触发痕迹排查(告警/动作都在后端日志)
+adb shell "grep MemoryWatch /mnt/UDISK/beiang8panel/logs/beiang8panel.log | tail"
+
+# =============================================================================
+# 十七、空调/地暖有无查询 API（v1.4.2 新增; 产品级静态值, 不占 Modbus 寄存器）
+# =============================================================================
+
+# 107. 空调有无 ▸数据源: 产品级静态(4CP 无空调, 仅新风/调湿/超净三项)
+# → {"hasAirConditioner":false}（裸对象; 上电即可查, 不依赖寄存器缓存就绪）
+curl "http://localhost:8080/api/device/air-conditioner/presence"
+
+# 108. 地暖有无 ▸数据源: 产品级静态(4CP 无地暖)
+# → {"hasFloorHeating":false}（裸对象）
+curl "http://localhost:8080/api/device/floor-heating/presence"
+
+# 109. 设备能力中的静态字段（capabilities 其余位来自离散 3000H-3001H 周期缓存）
+# → data 内 hasAirConditioner/hasFloorHeating 恒为 false（产品级, 非寄存器位）
+curl -s "http://localhost:8080/api/device/capabilities" | jq '.data.hasAirConditioner, .data.hasFloorHeating'
+
+# ============================================================================
+# 测试用例更新记录
+#   v3.21 (2026-09-04): 新增"十七、空调/地暖有无查询 API"用例 107-109——GET
+#                      /api/device/air-conditioner/presence 与 /api/device/
+#                      floor-heating/presence(裸对象, 4CP 无空调无地暖, 产品级
+#                      静态 false, 不依赖寄存器缓存); /api/device/capabilities
+#                      data 补充 hasAirConditioner/hasFloorHeating 静态字段;
+#                      软件版本 1.4.2。
+#   v3.20 (2026-09-04): 新增"十六、内存水位监控 API"用例 104-106——GET /api/memwatch/status
+#                      (MemAvailable 水位/分级处置配置/最近事件); 后端 MemoryWatchModule
+#                      三级阈值(warn 64MB/restart 32MB SIGTERM重启flutter/reboot 16MB),
+#                      连续3次防抖+冷却升级+OTA抑制; 配置段 memwatch; 软件版本 1.4.1。
+#   v3.19 (2026-09-04): 新增"十五、历史趋势 API"用例 98-103——GET /api/history/trend
+#                      (range=day|week|month[+date], wrapped 桶序列, 空桶 null, 温度1位小数)、
+#                      GET /api/history/status(采样/存储诊断, storageBytes=16+18×N);
+#                      移除未实现桩 /api/history/data(404); 采样源 200DH-2014H 落盘
+#                      /mnt/UDISK/beiang8panel/history/samples-YYYYMMDD.bin(默认600s);
+#                      软件版本 1.4.0。
+#   v3.18 (2026-09-03): 新增用例 86b——GET /api/device/factory-test/status 返回
+#                      1030H 厂测模式缓存值(v1.3.11, 裸对象, active=1030H==100)。
+#   v3.17 (2026-09-03): 新增用例 76b——GET /api/device/unit-run-mode/status 返回
+#                      100AH 整机运行模式缓存值(v1.3.10, 裸对象); 用例76补设备端
+#                      场景异步落位提示(连续切换需间隔+读回确认)。
+#   v3.16 (2026-09-03): 新增用例 75b——GET /api/device/leave-home/status 返回 1006H
+#                      一键离家缓存值(v1.3.9, 裸对象); 记录 1006H 设备侧自主翻转现象。
+#   v3.15 (2026-09-03): 与 HTTP_API.md v3.21 交叉核对后补齐遗漏用例——新增"十三b、v1.22
+#                      语义写接口组"用例 72-97: 加湿/除湿开关(1004H/1005H)、排风档位(1009H)、
+#                      一键离家(1006H)、整机运行模式(100AH)、无极风量/占空比(100BH-100EH)、
+#                      §15组(1010H-1015H/1020H)、压缩机/厂测锁/滤网复位/恢复出厂(1028H-1040H)、
+#                      厂测标定(1041H-1076H)、RS485 通讯开关、OTA 三接口; 速查表同步补 9 行。
+#   v3.14 (2026-09-03): 用例34 新增 format 参数(0=24h/1=12h, 前端设置, 时间仍按24h传入,
+#                      12h打包1-12+bit7=PM由后端换算; GET 12h制下hour归一24h+meridiem);
+#                      新增严格日历校验(非法日期如2-30/平年2-29拒绝且不写寄存器)及示例。
+#   v3.13 (2026-09-03): RTC 寄存器标注更正——v1.22 布局为 101BH-101FH 共5个打包寄存器
+#                      (年/月日/时分/秒星期/格式, 1016H-101AH预留), 原标注"1016H-101FH 9个"过时;
+#                      用例33 实测正常升级为✅并补标注。
+#   v3.12 (2026-09-03): 六、定位与天气 API 标记为未实装——待 WiFi 模组(EMC6069)提供
+#                      定位/天气接口后实装; 现有出口IP+pconline/和风天气为临时方案,
+#                      设备上实测均 HTTP 500(定位API失败/获取公网IP失败);
+#                      冒烟脚本移除 getLocation 检查项。
+#   v3.11 (2026-09-03): 速查表"2000H-205BH"修正为实际采集块"2000H-203BH"(04H整块60个);
+#                      用例6 补全 14 个环境寄存器映射(200DH-201AH: RA1/OA/SA 各
+#                      温度/湿度/PM2.5/CO2 + 2019H/201AH TVOC/甲醛, 温度有符号÷10、
+#                      TVOC类÷100); 同步删除网关遗留死代码 readEnvironmentData(v1.3.6)。
+#   v3.10 (2026-09-03): 模块开关(1001H/1002H/1003H)改为单写——互斥联动由4CP设备端自动执行
+#                      (开新风→关超净; 开超净→关新风+调湿; 开调湿→关超净; 新风+调湿可共存),
+#                      不再整组写互斥组, 不再返回"超净不能与新风或调湿同时开启";
+#                      一键开机=单写1001H=1, 一键关机=1001H-1003H组写0,0,0;
+#                      新增用例17b联动验证序列; 速查表补互斥联动说明; 软件版本 1.3.5。
+#   v3.9 (2026-09-03): 1008H 风速用例(18/21)按 v1.22 规格重写——可写前置由旧"1006H=0"更正为
+#                      "1001H=1 且 1007H∈{0,1,2,4}"(3自动/5睡眠只读), 补档位上限说明(2003H/2004H);
+#                      用例2-5 由"仅改内存"升级为真实写(W 1001H互斥组/W 1007H)并修正响应字段;
+#                      用例24 越界值改 mode=9(v1.22合法范围0-5); 全文控制类响应 data.success→
+#                      data.accepted(与实测一致); 冒烟脚本 device/power·mode 断言同步;
+#                      速查表 1006H 行更正为一键离家开关; 软件版本 1.3.4。
+#   v3.8 (2026-09-03): 全文寄存器标注——顶部新增 Modbus 寄存器速查表, 每个用例标题
+#                      统一追加 ▸寄存器: 标签(W=真实写 R=真实读 [模拟]=未真正下发),
+#                      便于测试人员对照地址测试; 屏幕控制类(用例10-13)走本机 sysfs/ioctl
+#                      不涉及 Modbus 寄存器。
+#   v3.7 (2026-08-27): /setAQILed 改为呼吸效果: 优先向 rgb_daemon FIFO(/tmp/rgb_test_fifo)
+#                      下发 BREATHE(3秒周期); level=5 严重故障告警(红色 EF4444, FAST_BREATHE
+#                      1秒快速呼吸); 新增 pm25 参数自动分级(<=35→1 35~75→2 75~150→3 >150→4);
+#                      等级色更新: 1=05DF72 2=C2DF05 3=F59E0B 4=EF4444(旧紫色 9C27B0 废除);
+#                      rgb_daemon 未运行(含 FIFO 残留文件)时直接熄灭并上报关闭状态。
+#   v3.5 (2026-08-18): 温湿度用例由 ⚠️ 模拟升级为 ✅ 真实（GXHTC3 sysfs hwmon，
+#                      实测 26.6°C/49.7%，读取失败回退 25.5/60.0）。
+#   v3.4 (2026-08-18): /setAQILed 参数由 enable/color 改为 level(0~4)，真实写 8 路
+#                      RGB LED（/sys/class/led/multi_brightness，颜色 RRGGBB）：
+#                      0=000000关闭 1=00C853 2=C6E600 3=F8B62D 4=9C27B0，非法值回退 0。
+#                      新增非法 level 用例与冒烟检查项。
+#                      （2026-08-19 灯珠数由 8 改为 9，见 v3.5 用例 55。）
+#   v3.3 (2026-08-07): 删除 /getRTCTime 与 /setRTCTime 用例（裸 RTC 接口已下线，
+#                      RTC 读写统一使用 /api/rtc/time，见用例 33、34）。
+#   v3.2 (2026-08-07): /api/rtc/time 与 /setRTCTime 改为真实写设备（1016H-101FH），
+#                      POST 请求体修正为 time/timestamp（原 year/month/day 字段无效）；
+#                      环境数据/提醒接口标注为纯读周期采集缓存；getWeather 标注 weather.apiKey 配置要求。
+#   v3.1 (2026-08-06): 新增 /api/idle/air-quality-reminder 测试用例（基本调用 + jq 提取）
+#                      与冒烟检查项；同步重排用例编号。
+#   v3.0 (2026-08-06): 以真实代码行为重写；按实现状态分组；每条标注预期响应；
+#                      修正 modbus/read 的 type 参数误用；新增 /api/idle/environment；
+#                      新增真实参数校验类边界测试；新增一键冒烟脚本。
+#   v2.0 (2026-08-05): 面向 v1.20 协议的目标用例集（含较多未落地接口）。
+# ============================================================================

@@ -1,0 +1,72 @@
+# .ai-review.yaml —— 官方标准结构（LLM 基础配置由 CI 环境变量注入）
+
+
+prompt:
+  inline_prompt_files:
+    - ./prompts/inline/inline_light.md
+  summary_prompt_files:
+    - ./prompts/summary/summary_light.md
+
+review:
+  # 审查模式：只审查新增行，减少输入 token
+  mode: ONLY_ADDED
+
+  # 忽略不需要审查的文件
+  ignore_changes:
+    - "*.md"
+    - "*.txt"
+    - "*.json"
+    - "*.xml"
+    - "*.yaml"
+    - "*.toml"
+    - "*.ini"
+    - "*.cfg"
+    - "*.conf"
+    - "*.lock"
+    - "*.svg"
+    - "*.png"
+    - "*.jpg"
+    - "*.jpeg"
+    - "*.gif"
+    - "*.ico"
+    - "*.bin"
+    - "*.elf"
+    - "*.o"
+    - "*.so"
+    - "*.a"
+    - "*.exe"
+    - "*.dll"
+    - "*.pyc"
+    - "*.bak"
+    - "*.swp"
+    - "*.patch"
+    - "*.diff"
+    - "*.generated.*"
+    - "**/demos/**"
+    - "**/assets/**"
+    - "**/test/**"
+    - "**/vendor/**"
+    - "**/node_modules/**"
+    - "**/build/**"
+    - "**/dist/**"
+    - "**/out/**"
+    - "**/target/**"
+
+  # 跳过纯重命名的文件（无内容变更）
+  ignore_pure_renames: true
+
+  # 限制每个文件的行内评论数量（防止单个文件输出过多）
+  #max_inline_comments: 20
+
+  # 限制整个 MR 的总结评论数量（通常只会有一条）
+  max_context_comments: 1
+
+  # 禁止 inline 失败时降级为 summary 评论，避免噪音
+  inline_comment_fallback: false
+
+  # 标记 AI 生成的评论（便于识别）
+  inline_tag: "#ai-review-inline"
+  summary_tag: "#ai-review-summary"
+
+logger:
+  level: INFO

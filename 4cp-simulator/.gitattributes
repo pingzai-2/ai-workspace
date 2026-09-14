@@ -1,0 +1,12 @@
+# Bundled third-party trees retain the SDK archive bytes exactly. Their own
+# Unix scripts are already LF; disabling conversion also preserves the few
+# upstream CRLF source fixtures without letting global core.autocrlf rewrite
+# the rest of the tree.
+.gitattributes text eol=lf
+external/libhv/** -text
+external/libmodbus/** -text
+cmake/libmodbus/** text eol=lf
+
+# Windows entry scripts are executed directly by cmd/PowerShell.
+*.bat text eol=crlf
+*.ps1 text eol=crlf

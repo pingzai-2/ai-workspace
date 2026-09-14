@@ -1,0 +1,25 @@
+{
+    "device": {
+        "address": 209,
+        "model": "4CP",
+        "protocolVersion": "v1.22"
+    },
+    "transport": {
+        "type": "serial",
+        "endpoint": "/dev/ttyS3",
+        "baudRate": 9600,
+        "dataBits": 8,
+        "parity": "N",
+        "stopBits": 1,
+        "timeout": 50
+    },
+    "network": {
+        "httpHost": "127.0.0.1",
+        "httpPort": 8081
+    },
+    "dataAcquisition": {
+        "autoReconnect": true,
+        "interval": 1000,
+        "maxRetryCount": 5
+    }
+}

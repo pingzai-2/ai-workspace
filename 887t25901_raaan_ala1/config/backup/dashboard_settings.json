@@ -1,0 +1,270 @@
+{
+  "allDevicesOn": false,
+  "leaveHomeModeEnabled": false,
+  "homeFloorSelection": "floor_1",
+  "airConditionerEnabled": false,
+  "floorHeatEnabled": false,
+  "freshAirEnabled": false,
+  "humidifierEnabled": false,
+  "pureSettings": {
+    "enabled": false,
+    "duration": "2h"
+  },
+  "timeFormat": "24h",
+  "dateYear": 2026,
+  "dateMonth": 8,
+  "dateDay": 15,
+  "clockHour": 0,
+  "clockMinute": 0,
+  "clockSecond": 0,
+  "languageCode": "zh_CN",
+  "screenBrightnessPercent": 75,
+  "priorityMetric": "pm25",
+  "aqiIndicatorEnabled": true,
+  "presenceRadarEnabled": true,
+  "presenceRadarDistanceMeters": 1,
+  "buzzerFeedbackEnabled": false,
+  "buzzerVolume": "medium",
+  "indicatorLightBrightness": "bright",
+  "screenOffSeconds": 30,
+  "airQualityAutoDetectionEnabled": true,
+  "wifiEnabled": true,
+  "wifiSsid": "CMCC-6U55-5G",
+  "savedWifiNetworks": [
+    {
+      "ssid": "CMCC-6U55-5G",
+      "password": "666666"
+    },
+    {
+      "ssid": "TPlink-2.4G",
+      "password": "666666"
+    },
+    {
+      "ssid": "beiang888",
+      "password": "666666"
+    },
+    {
+      "ssid": "HomeLab-5G",
+      "password": "666666"
+    },
+    {
+      "ssid": "AP-link-2.4G",
+      "password": "666666"
+    }
+  ],
+  "timerEnabled": false,
+  "timerStartMinutes": 1080,
+  "timerEndMinutes": 1320,
+  "timerRepeatDays": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "manualAirConditioners": [
+    {
+      "deviceId": "air_conditioner_dining_room",
+      "roomName": "餐厅",
+      "enabled": true,
+      "targetTemperatureC": 24,
+      "mode": "cooling",
+      "fanLevel": "L2",
+      "timerEnabled": false,
+      "timerStartMinutes": 1320,
+      "timerEndMinutes": 420,
+      "timerRepeat": "daily"
+    },
+    {
+      "deviceId": "air_conditioner_master_bedroom",
+      "roomName": "卧室",
+      "enabled": true,
+      "targetTemperatureC": 26,
+      "mode": "cooling",
+      "fanLevel": "L3",
+      "timerEnabled": true,
+      "timerStartMinutes": 1320,
+      "timerEndMinutes": 420,
+      "timerRepeat": "daily"
+    },
+    {
+      "deviceId": "air_conditioner_children_room",
+      "roomName": "儿童房",
+      "enabled": true,
+      "targetTemperatureC": 27,
+      "mode": "cooling",
+      "fanLevel": "L1",
+      "timerEnabled": true,
+      "timerStartMinutes": 1260,
+      "timerEndMinutes": 480,
+      "timerRepeat": "weekdays"
+    },
+    {
+      "deviceId": "air_conditioner_guest_bedroom",
+      "roomName": "次卧",
+      "enabled": false,
+      "targetTemperatureC": 24,
+      "mode": "cooling",
+      "fanLevel": "L3",
+      "timerEnabled": true,
+      "timerStartMinutes": 1320,
+      "timerEndMinutes": 420,
+      "timerRepeat": "once"
+    },
+    {
+      "deviceId": "air_conditioner_master_bedroom2",
+      "roomName": "卧室2",
+      "enabled": true,
+      "targetTemperatureC": 24,
+      "mode": "auto",
+      "fanLevel": "auto",
+      "timerEnabled": false,
+      "timerStartMinutes": 1080,
+      "timerEndMinutes": 1320,
+      "timerRepeat": "once"
+    }
+  ],
+  "manualFloorHeatSettings": [
+    {
+      "deviceId": "floor_heat_dining_room",
+      "enabled": true,
+      "targetTemperatureC": 26,
+      "timerEnabled": true,
+      "timerStartMinutes": 1080,
+      "timerEndMinutes": 1320,
+      "timerRepeat": "once"
+    },
+    {
+      "deviceId": "floor_heat_bedroom",
+      "enabled": true,
+      "targetTemperatureC": 26,
+      "timerEnabled": true,
+      "timerStartMinutes": 1320,
+      "timerEndMinutes": 420,
+      "timerRepeat": "daily"
+    },
+    {
+      "deviceId": "floor_heat_children_room",
+      "enabled": true,
+      "targetTemperatureC": 26,
+      "timerEnabled": true,
+      "timerStartMinutes": 1260,
+      "timerEndMinutes": 480,
+      "timerRepeat": "weekdays"
+    },
+    {
+      "deviceId": "floor_heat_guest_bedroom",
+      "enabled": false,
+      "targetTemperatureC": 26,
+      "timerEnabled": true,
+      "timerStartMinutes": 1320,
+      "timerEndMinutes": 420,
+      "timerRepeat": "once"
+    },
+    {
+      "deviceId": "floor_heat_whole_home",
+      "enabled": true,
+      "targetTemperatureC": 26,
+      "timerEnabled": true,
+      "timerStartMinutes": 1080,
+      "timerEndMinutes": 1320,
+      "timerRepeat": "weekdays"
+    },
+    {
+      "deviceId": "air_conditioner_master_bedroom15",
+      "enabled": true,
+      "targetTemperatureC": 26,
+      "timerEnabled": false,
+      "timerStartMinutes": 1080,
+      "timerEndMinutes": 1320,
+      "timerRepeat": "once"
+    },
+    {
+      "deviceId": "air_conditioner_master_bedroom3",
+      "enabled": true,
+      "targetTemperatureC": 26,
+      "timerEnabled": false,
+      "timerStartMinutes": 1080,
+      "timerEndMinutes": 1320,
+      "timerRepeat": "once"
+    },
+    {
+      "deviceId": "air_conditioner_master_bedroom4",
+      "enabled": true,
+      "targetTemperatureC": 26,
+      "timerEnabled": false,
+      "timerStartMinutes": 1080,
+      "timerEndMinutes": 1320,
+      "timerRepeat": "once"
+    },
+    {
+      "deviceId": "air_conditioner_master_bedroom5",
+      "enabled": true,
+      "targetTemperatureC": 26,
+      "timerEnabled": false,
+      "timerStartMinutes": 1080,
+      "timerEndMinutes": 1320,
+      "timerRepeat": "once"
+    },
+    {
+      "deviceId": "air_conditioner_master_bedroom7",
+      "enabled": true,
+      "targetTemperatureC": 26,
+      "timerEnabled": false,
+      "timerStartMinutes": 1080,
+      "timerEndMinutes": 1320,
+      "timerRepeat": "once"
+    },
+    {
+      "deviceId": "air_conditioner_master_bedroom9",
+      "enabled": false,
+      "targetTemperatureC": 26,
+      "timerEnabled": false,
+      "timerStartMinutes": 1080,
+      "timerEndMinutes": 1320,
+      "timerRepeat": "once"
+    }
+  ],
+  "manualFreshAirMode": "full_heat_exchange",
+  "manualFreshAirFanLevel": "L2",
+  "manualFreshAirTimerEnabled": true,
+  "manualFreshAirTimerStartMinutes": 1260,
+  "manualFreshAirTimerEndMinutes": 480,
+  "manualFreshAirTimerRepeat": "daily",
+  "manualHumidifierSetpointPercent": 30,
+  "manualHumidifierTimerEnabled": true,
+  "manualHumidifierTimerStartMinutes": 1260,
+  "manualHumidifierTimerEndMinutes": 480,
+  "manualHumidifierTimerRepeat": "daily",
+  "smartModes": {
+    "standard": {
+      "enabled": true,
+      "temperatureSetpointC": 25,
+      "humiditySetpointPercent": 60
+    },
+    "guest": {
+      "enabled": false,
+      "temperatureSetpointC": 24,
+      "humiditySetpointPercent": 55
+    },
+    "dry": {
+      "enabled": false,
+      "temperatureSetpointC": 24,
+      "humiditySetpointPercent": 40
+    },
+    "warm": {
+      "enabled": false,
+      "temperatureSetpointC": 26,
+      "humiditySetpointPercent": 55
+    },
+    "travel": {
+      "enabled": false,
+      "temperatureSetpointC": 25,
+      "humiditySetpointPercent": 55
+    }
+  },
+  "filter1RemainingDays": 90,
+  "filter2RemainingDays": 10,
+  "filter3RemainingDays": 300
+}

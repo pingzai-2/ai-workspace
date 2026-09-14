@@ -1,0 +1,48 @@
+# 编译输出
+out/
+output/
+build/
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+
+# 日志文件
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+.history/
+*.swp
+*.swo
+*~
+
+# 工具索引
+.codegraph/
+
+# 临时文件
+*.tmp
+*_bak
+._*
+.DS_Store
+Thumbs.db
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile.bak
+
+# 调试文件
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# 测试覆盖率
+coverage/
+*.gcda
+*.gcno

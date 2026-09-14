@@ -1,0 +1,13 @@
+<svg width="366" height="366" viewBox="0 0 366 366" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g id="main_circle_static" clip-path="url(#clip0_main_circle_static)">
+    <rect width="366" height="366" fill="black"/>
+    <circle transform="translate(78 54)" cx="138" cy="138" r="138" fill="#73D1E4" fill-opacity="0.2"/>
+    <circle transform="translate(53 15)" cx="138" cy="138" r="138" fill="#73D1E4" fill-opacity="0.2"/>
+    <circle transform="translate(19 55)" cx="138" cy="138" r="138" fill="#73D1E4" fill-opacity="0.2"/>
+  </g>
+  <defs>
+    <clipPath id="clip0_main_circle_static">
+      <rect width="366" height="366" fill="white"/>
+    </clipPath>
+  </defs>
+</svg>

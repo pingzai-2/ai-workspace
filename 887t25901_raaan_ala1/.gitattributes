@@ -1,0 +1,16 @@
+# Keep executable scripts usable on every checkout platform.
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Flutter regenerates these files with LF; keep fresh clones identical.
+/linux/flutter/generated_* text eol=lf
+/windows/flutter/generated_* text eol=lf
+/macos/Flutter/GeneratedPluginRegistrant.swift text eol=lf
+
+# CocoaPods includes the Podfile bytes in the lockfile checksum.
+/macos/Podfile text eol=lf
+/macos/Podfile.lock text eol=lf
+
+# Keep native Windows launch scripts in their conventional format.
+*.bat text eol=crlf
+*.ps1 text eol=crlf

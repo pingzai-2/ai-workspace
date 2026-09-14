@@ -1,0 +1,336 @@
+{
+  "@@locale": "zh",
+
+  "menuSettings": "系统设置",
+  "menuMaintenance": "设备维护",
+  "menuEngineering": "工程模式",
+  "settingsBackHint": "※ 返回即自动保存设置",
+
+  "generalSettings": "通用设置",
+  "networkSettings": "网络设置",
+  "timerSettings": "定时设置",
+  "systemInfo": "系统信息",
+
+  "timeFormat": "时间格式",
+  "timeFormat24h": "24 小时",
+  "timeFormat12h": "12 小时",
+  "dateSetting": "日期设置",
+  "clockSetting": "时钟设置",
+  "languageSelection": "语言选择",
+  "screenBrightness": "屏幕亮度",
+  "brightnessPercent": "{value} %",
+  "@brightnessPercent": {
+    "placeholders": {
+      "value": { "type": "int" }
+    }
+  },
+  "priorityMetric": "优先指标",
+  "aqiIndicator": "AQI指示灯",
+  "indicatorLightBrightness": "指示灯亮度",
+  "indicatorLightBright": "亮",
+  "indicatorLightDark": "暗",
+  "presenceRadar": "人感雷达",
+  "screenOffTime": "息屏时间",
+  "screenOffSecondsValue": "{seconds} 秒",
+  "@screenOffSecondsValue": {
+    "placeholders": {
+      "seconds": { "type": "int" }
+    }
+  },
+  "airQualityAutoDetection": "空气品质自动检测",
+
+  "metricTemperature": "温度",
+  "metricHumidity": "湿度",
+  "metricPm25": "PM2.5",
+  "metricCo2": "CO₂",
+  "metricFormaldehyde": "甲醛",
+
+  "network": "网络",
+  "myNetwork": "我的网络",
+  "ipAddress": "IP 地址",
+  "notConnected": "未连接",
+  "currentNetwork": "当前网络",
+  "otherNetworks": "其他网络",
+  "connecting": "连接中",
+  "wifiConnectingPrefix": "正在连接 ",
+  "wifiConnectingSuffix": " ……",
+  "connectionFailed": "连接失败",
+  "disconnect": "断开",
+
+  "timer": "定时",
+  "timeRangeSetting": "时间段设置",
+  "timerRangeValue": "定时开  {start}～{end}",
+  "@timerRangeValue": {
+    "placeholders": {
+      "start": { "type": "String" },
+      "end": { "type": "String" }
+    }
+  },
+  "repeatCycle": "重复周期",
+  "everyDay": "每天",
+  "monday": "周一",
+  "tuesday": "周二",
+  "wednesday": "周三",
+  "thursday": "周四",
+  "friday": "周五",
+  "saturday": "周六",
+  "sunday": "周日",
+
+  "version": "版本号",
+  "checkUpdate": "检查更新",
+  "update": "更新",
+  "noUpdateMessage": "当前已是最新版本",
+
+  "systemUptimePrefix": "系统已运行 ",
+  "systemUptimeSuffix": " 天",
+
+  "clockHourHand": "时针",
+  "clockMinuteHand": "分针",
+  "clockSecondHand": "秒针",
+  "am": "上午",
+  "pm": "下午",
+  "confirm": "确认",
+  "cancel": "取消",
+  "ok": "确定",
+  "brightness": "亮度",
+
+  "start": "开始",
+  "end": "结束",
+  "enterPassword": "请输入密码",
+  "passwordError": "※  密码不正确，请重试",
+
+  "updateAvailableMessage": "有最新可用版本，更新预计耗时2小时，是否继续？",
+  "updateLater": "下次再说",
+  "updateNow": "立即更新",
+  "updatingMessage": "更新过程中请勿断电，更新完成后将自动重启设备",
+  "updateFailedMessage": "版本下载更新失败，请检查网络连接或稍后再试",
+  "exit": "退出",
+
+  "consumableStatus": "耗材状态",
+  "maintenance": "保养",
+  "filterName": "滤网 {index}",
+  "@filterName": {
+    "placeholders": {
+      "index": { "type": "int" }
+    }
+  },
+  "remainingPrefix": "余",
+  "dayUnit": "天",
+  "dueForMaintenance": "待维护",
+  "service": "服务",
+  "callServiceProvider": "呼叫服务商",
+  "nextMaintenanceDate": "下次保养时间",
+  "maintenanceResetMessage": "该操作将会重置当前滤网使用周期，是否继续？",
+
+  "back": "返回",
+  "offline": "离线",
+  "space": "空格",
+
+  "navHome": "首页",
+  "navMain": "主页",
+  "navSmart": "智能",
+  "navManual": "手动",
+  "navTrends": "趋势",
+  "navHistory": "历史",
+  "navSettings": "设置",
+  "navSettingsAlt": "设定",
+
+  "backendOffline": "后端服务离线",
+  "backendStale": "设备数据陈旧",
+  "notificationCenter": "通知中心",
+  "faultAlert": "故障提醒",
+  "noNotifications": "当前无最新通知！",
+  "noFaults": "当前无故障！",
+  "contactSupport": "联系售后",
+
+  "deviceAirConditioner": "空调",
+  "deviceFloorHeat": "地暖",
+  "deviceFreshAir": "新风",
+  "deviceHumidifier": "调湿",
+  "devicePure": "超净",
+  "stateCooling": "制冷",
+  "stateNotOn": "未开启",
+  "stateOn": "已开启",
+  "freshAirModeInternalCirculation": "内循环",
+  "fanLevelHigh": "强档",
+  "iefStarting": "IEF启动中",
+  "quickPowerAll": "一键\n开关",
+  "quickLeaveHome": "一键\n离家",
+  "floorIndoor": "室内",
+  "floorAll": "全部",
+  "floorBasement1": "地下一层",
+  "floorBasement2": "地下二层",
+  "floor1": "一层",
+  "floor2": "二层",
+  "floor3": "三层",
+
+  "weatherSunny": "晴",
+  "weatherClearNight": "晴夜",
+  "weatherMostlyClear": "晴间多云",
+  "weatherOvercast": "阴",
+  "weatherCloudy": "多云",
+  "weatherDrizzle": "毛毛雨",
+  "weatherMiddleRain": "中雨",
+  "weatherHeavyRain": "大雨",
+  "weatherExtremeRain": "暴雨",
+  "weatherMostlyClearRain": "晴间多云有雨",
+  "weatherThunderstorms": "雷阵雨",
+  "weatherDrizzleToMiddleRain": "小到中雨",
+  "weatherMiddleToHeavyRain": "中到大雨",
+  "weatherLightSnow": "小雪",
+  "weatherModerateSnow": "中雪",
+  "weatherHeavySnow": "大雪",
+  "weatherWindSnow": "风雪",
+  "weatherSleet": "雨夹雪",
+  "weatherFog": "雾",
+  "weatherHaze": "霾",
+  "weatherDust": "浮尘",
+  "weatherSandstorm": "扬沙",
+  "weatherWindy": "大风",
+  "weatherCyclone": "台风",
+  "weatherHail": "冰雹",
+  "weatherHeatWave": "高温",
+  "weatherColdWave": "低温",
+  "weatherAlert": "天气预警",
+  "weatherBlizzard": "暴雪",
+  "weatherCodeOrange": "橙色预警",
+  "weatherCodeRed": "红色预警",
+
+  "smartStandard": "标准模式",
+  "smartGuest": "会客模式",
+  "smartDry": "干爽模式",
+  "smartHumid": "温润模式",
+  "smartTravel": "旅行模式",
+  "smartModeActiveHint": "※ {mode}已启用",
+  "@smartModeActiveHint": {
+    "placeholders": {
+      "mode": { "type": "String" }
+    }
+  },
+  "smartExitMessage": "该操作将会退出当前智能模式，是否继续？",
+
+  "manualMode": "模式",
+  "manualFanSpeed": "风量",
+  "manualDuration": "时长",
+  "manualHold": "保持",
+  "manualRoom": "房间",
+  "manualTimerOn": "定时开",
+  "manualTimerOff": "定时关",
+  "manualRepeat": "循环",
+  "manualFreshAirMode": "新风模式",
+  "manualFreshAirFanSpeed": "新风风量",
+  "modeAuto": "自动",
+  "modeHeating": "制热",
+  "modeFan": "送风",
+  "freshAirModeFullHeatExchange": "全热交换",
+  "repeatOnce": "单次",
+  "repeatWeekdays": "工作日",
+  "repeatOff": "关闭",
+  "timerNotSet": "定时  未设置",
+  "timerSummaryValue": "定时  {start}-{end}（{repeat}）",
+  "@timerSummaryValue": {
+    "placeholders": {
+      "start": { "type": "String" },
+      "end": { "type": "String" },
+      "repeat": { "type": "String" }
+    }
+  },
+  "runningDeviceCount": "※ 当前 {count} 台设备运行中",
+  "@runningDeviceCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "manualWholeHomeFloorHeat": "将控制全屋地暖",
+  "manualWholeHomeFreshAir": "将控制全屋新风",
+  "manualWholeHomeHumidity": "将控制全屋湿度",
+  "manualWholeHomePure": "已开启全屋超净",
+  "manualExitMessage": "该操作将会退出当前手动模式，是否继续？",
+  "freshAirTimerSetting": "新风定时设置",
+  "humidifierTimerSetting": "调湿定时设置",
+  "floorHeatTimerSetting": "地暖定时设置",
+  "acTimerSettingTitle": "{room}空调定时设置",
+  "@acTimerSettingTitle": {
+    "placeholders": {
+      "room": { "type": "String" }
+    }
+  },
+  "acAdjustTitle": "{room}空调调节",
+  "@acAdjustTitle": {
+    "placeholders": {
+      "room": { "type": "String" }
+    }
+  },
+  "floorHeatRoomTimerTitle": "{room}地暖定时设置",
+  "@floorHeatRoomTimerTitle": {
+    "placeholders": {
+      "room": { "type": "String" }
+    }
+  },
+
+  "idleNoData": "暂无实时数据",
+  "idleAdviceGoodGood": "室内外空气质量良好，可适当开窗通风",
+  "idleAdviceOutdoorBetter": "室外空气质量优于室内，建议适当开窗通风",
+  "idleAdviceGoodFair": "室内空气质量优良，室外空气质量一般，建议减少室外活动",
+  "idleAdviceGoodPoor": "室内空气质量优良，室外空气质量较差，建议减少室外活动",
+  "idleAdviceFairFair": "室内空气质量一般，室外空气质量一般，建议开启超净提升净化效率，并减少室外活动",
+  "idleAdviceFairPoor": "室内空气质量一般，室外空气质量较差，建议开启超净提升净化效率，并减少室外活动",
+  "idleAdvicePoorFair": "室内空气质量较差，室外空气质量一般，建议开启超净提升净化效率，并减少室外活动",
+  "idleAdvicePoorPoor": "室内空气质量较差，室外空气质量较差，建议开启超净提升净化效率，并减少室外活动",
+  "idleOutdoor": "室外",
+
+  "historyWeeklyTitle": "星期",
+  "historyTimeTitle": "时间",
+  "historyAverageSuffix": "平均",
+  "historyDailyView": "按日查看",
+  "historyWeeklyView": "按周查看",
+  "historyMonthlyView": "按月查看",
+
+  "engineeringFreshAirConfig": "新风子系统配置",
+  "engineeringAcConfig": "空调子系统配置",
+  "engineeringFloorHeatConfig": "地暖子系统配置",
+  "engineeringProductionTestConfig": "产测模式配置",
+  "engineeringCompleteInstallation": "施工完成确认",
+  "engineeringSavingConfig": "正在保存配置…",
+  "engineeringConfigConfirmed": "本次配置已确认",
+  "engineeringProductionTestTitle": "产测模式",
+  "engineeringDeviceSearch": "设备搜索",
+  "engineeringNameSettings": "名称设置",
+  "engineeringSaveAndReturn": "确定并返回",
+  "engineeringAreaSelect": "区域选择",
+  "engineeringRoomSelect": "房间选择",
+  "engineeringDeviceName": "设备名称",
+  "engineeringConfigAddress": "配置地址",
+  "engineeringAreaName": "区域名称",
+  "engineeringRoomName": "房间名称",
+  "engineeringTestRun": "试运行",
+  "engineeringAreaId": "区域ID",
+  "engineeringRoomId": "房间ID",
+  "engineeringAddRoomHint": "点击输入新增房间",
+  "engineeringAddAreaHint": "点击输入新增区域",
+  "engineeringSettingItem": "设置项",
+  "engineeringParameterSettings": "参数设置",
+  "engineeringPanelName": "8寸控制屏",
+  "engineeringTempHumiditySensor": "温湿度传感器",
+  "engineeringTempHumidityParams": "温度：25℃        湿度：56%",
+  "engineeringPasswordSetting": "工程模式密码设置",
+  "engineeringFilterLife": "滤网寿命",
+  "engineeringMaintenanceInterval": "保养时间",
+  "engineeringServicePhone": "服务商电话",
+  "engineeringMotorSpeedTitle": "电机{index}转速设置",
+  "@engineeringMotorSpeedTitle": {
+    "placeholders": {
+      "index": { "type": "int" }
+    }
+  },
+  "engineeringCompressorFreq": "压缩机频率设置",
+  "engineeringRepeatInput": "重复输入",
+  "engineeringNextMaintenanceDays": "下次保养天数",
+  "engineeringReset": "重置",
+  "engineeringEnter6DigitPassword": "请输入 6 位数字密码",
+  "engineeringPasswordMismatch": "两次密码不一致，请重新输入",
+  "engineeringPasswordMatchConfirm": "两次输入一致，请点击确认",
+  "engineeringApplied": "本次运行已生效",
+  "engineeringNewPasswordPrompt": "请输入新的 6 位密码",
+  "engineeringReenterPasswordPrompt": "请再次输入新的 6 位密码"
+}
