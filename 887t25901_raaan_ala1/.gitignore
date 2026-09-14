@@ -58,3 +58,4 @@ app.*.map.json
 /output/
 
 /CLAUDE.md
+.codegraph/
