@@ -20,6 +20,93 @@
 using namespace std;
 using namespace BeiAng4CPRegisters;
 
+namespace {
+
+constexpr uint16_t kMaxRegisterReadCount = 120;
+
+// 当前进程只有一个共享 4CP Gateway。写后确认读得到的新事实先记为补丁，
+// 本轮全量采集完成时再覆盖到 rawCache；若同一地址随后又被正常轮询读到，
+// 则正常读结果更新得更晚，会先清掉旧补丁。
+struct HoldingReadbackPatchState {
+    std::mutex mutex;
+    uint16_t values[HOLDING_READ_COUNT] = {0};
+    bool valid[HOLDING_READ_COUNT] = {false};
+};
+
+HoldingReadbackPatchState& holdingReadbackPatchState()
+{
+    static HoldingReadbackPatchState state;
+    return state;
+}
+
+void clearHoldingReadbackPatch(uint16_t startAddress, uint16_t count)
+{
+    if (count == 0) {
+        return;
+    }
+
+    const uint32_t rangeStart = startAddress;
+    const uint32_t rangeEnd = rangeStart + count - 1u;
+    const uint32_t cacheStart = HOLDING_READ_START;
+    const uint32_t cacheEnd = cacheStart + HOLDING_READ_COUNT - 1u;
+    if (rangeEnd < cacheStart || rangeStart > cacheEnd) {
+        return;
+    }
+
+    const uint16_t begin = static_cast<uint16_t>(std::max(rangeStart, cacheStart) - cacheStart);
+    const uint16_t end = static_cast<uint16_t>(std::min(rangeEnd, cacheEnd) - cacheStart);
+
+    HoldingReadbackPatchState& state = holdingReadbackPatchState();
+    std::lock_guard<std::mutex> lock(state.mutex);
+    for (uint16_t offset = begin; offset <= end; ++offset) {
+        state.valid[offset] = false;
+    }
+}
+
+void recordHoldingReadbackPatch(
+    uint16_t startAddress,
+    const std::vector<uint16_t>& values)
+{
+    if (values.empty()) {
+        return;
+    }
+
+    const uint32_t rangeStart = startAddress;
+    const uint32_t rangeEnd = rangeStart + values.size() - 1u;
+    const uint32_t cacheStart = HOLDING_READ_START;
+    const uint32_t cacheEnd = cacheStart + HOLDING_READ_COUNT - 1u;
+    if (rangeEnd < cacheStart || rangeStart > cacheEnd) {
+        return;
+    }
+
+    HoldingReadbackPatchState& state = holdingReadbackPatchState();
+    std::lock_guard<std::mutex> lock(state.mutex);
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        const uint32_t address = rangeStart + i;
+        if (address < cacheStart || address > cacheEnd) {
+            continue;
+        }
+        const uint16_t offset = static_cast<uint16_t>(address - cacheStart);
+        state.values[offset] = values[i];
+        state.valid[offset] = true;
+    }
+}
+
+void applyHoldingReadbackPatch(BeiAng4CPGateway::RawRegisterCache& rawCache)
+{
+    HoldingReadbackPatchState& state = holdingReadbackPatchState();
+    std::lock_guard<std::mutex> lock(state.mutex);
+    for (uint16_t offset = 0; offset < HOLDING_READ_COUNT; ++offset) {
+        if (!state.valid[offset]) {
+            continue;
+        }
+        rawCache.holdingRegs[offset] = state.values[offset];
+        state.valid[offset] = false;
+    }
+}
+
+} // namespace
+
 BeiAng4CPGateway::BeiAng4CPGateway(std::unique_ptr<CommunicationScheduler> scheduler,
     const string& port, int baudRate,
     char parity, int dataBits, int stopBits, int responseTimeoutMs)
@@ -218,13 +305,19 @@ bool BeiAng4CPGateway::readDeviceData(GatewayGeneralDataStructure& data,
 bool BeiAng4CPGateway::readRawDeviceData(RawRegisterCache& rawCache)
 {
     rawCache = RawRegisterCache();
-    const uint16_t readBatchSize = 50;
+    const uint16_t readBatchSize = kMaxRegisterReadCount;
 
     for (uint16_t offset = 0; offset < HOLDING_READ_COUNT;) {
         const uint16_t batch = std::min<uint16_t>(readBatchSize, HOLDING_READ_COUNT - offset);
-        if (!executeRead([this, offset, batch, &rawCache]() {
-                return readHoldingRegisters(
-                    HOLDING_READ_START + offset, batch, rawCache.holdingRegs + offset);
+        const uint16_t startAddress = static_cast<uint16_t>(HOLDING_READ_START + offset);
+        if (!executeRead([this, startAddress, offset, batch, &rawCache]() {
+                if (!readHoldingRegisters(
+                        startAddress, batch, rawCache.holdingRegs + offset)) {
+                    return false;
+                }
+                // 正常轮询若发生在某次回读之后，它本身就是更新的事实。
+                clearHoldingReadbackPatch(startAddress, batch);
+                return true;
             })) {
             return false;
         }
@@ -272,6 +365,10 @@ bool BeiAng4CPGateway::readRawDeviceData(RawRegisterCache& rawCache)
                 rawCache.discreteWords, bit, rawCache.discreteInputs[bit]);
         }
     }
+
+    // 写后确认读可能发生在本轮 holding 读取之后。发布前把这些更晚确认的
+    // 寄存器值补回 rawCache，避免全量快照重新覆盖刚确认的新状态。
+    applyHoldingReadbackPatch(rawCache);
     return true;
 }
 
@@ -1092,7 +1189,8 @@ bool BeiAng4CPGateway::submitHoldingRegisterRead(
     uint16_t count,
     HoldingReadCompletion completion)
 {
-    if (!m_scheduler || !m_scheduler->isRunning() || count == 0 || count > 50) {
+    if (!m_scheduler || !m_scheduler->isRunning()
+        || count == 0 || count > kMaxRegisterReadCount) {
         m_lastError = "Modbus master scheduler is not running or read range is invalid";
         return false;
     }
@@ -1102,7 +1200,10 @@ bool BeiAng4CPGateway::submitHoldingRegisterRead(
         notifyOnSuccess([this, startAddr, count, values]() {
             return readHoldingRegisters(startAddr, count, values->data());
         }),
-        [values, completion = std::move(completion)](bool success) {
+        [startAddr, count, values, completion = std::move(completion)](bool success) {
+            if (success && values->size() == count) {
+                recordHoldingReadbackPatch(startAddr, *values);
+            }
             if (completion) {
                 completion(success, *values);
             }
@@ -1122,7 +1223,7 @@ bool BeiAng4CPGateway::readHoldingRegister(uint16_t address, uint16_t count, uin
         m_lastError = "Invalid holding register read arguments";
         return false;
     }
-    const uint16_t readBatchSize = 50;
+    const uint16_t readBatchSize = kMaxRegisterReadCount;
     for (uint16_t offset = 0; offset < count;) {
         const uint16_t batch = std::min<uint16_t>(readBatchSize, count - offset);
         if (!executeRead([this, address, offset, batch, values]() {
@@ -1149,7 +1250,7 @@ bool BeiAng4CPGateway::readInputRegister(uint16_t address, uint16_t count, uint1
         m_lastError = "Invalid input register read arguments";
         return false;
     }
-    const uint16_t readBatchSize = 50;
+    const uint16_t readBatchSize = kMaxRegisterReadCount;
     for (uint16_t offset = 0; offset < count;) {
         const uint16_t batch = std::min<uint16_t>(readBatchSize, count - offset);
         if (!executeRead([this, address, offset, batch, values]() {
@@ -1245,8 +1346,8 @@ bool BeiAng4CPGateway::readHoldingRegisters(uint16_t startAddr, uint16_t count, 
         m_lastError = "Device not connected";
         return false;
     }
-    if (count == 0 || count > 50 || !registers) {
-        m_lastError = "Holding register transaction must contain 1..50 registers";
+    if (count == 0 || count > kMaxRegisterReadCount || !registers) {
+        m_lastError = "Holding register transaction must contain 1..120 registers";
         return false;
     }
 
@@ -1301,8 +1402,8 @@ bool BeiAng4CPGateway::readInputRegistersInternal(uint16_t startAddr, uint16_t c
         m_lastError = "Device not connected";
         return false;
     }
-    if (count == 0 || count > 50 || !registers) {
-        m_lastError = "Input register transaction must contain 1..50 registers";
+    if (count == 0 || count > kMaxRegisterReadCount || !registers) {
+        m_lastError = "Input register transaction must contain 1..120 registers";
         return false;
     }
 
