@@ -1,3 +1,4 @@
+#!/bin/sh
 set -eu
 
 cd "$(dirname "$0")"
@@ -13,3 +14,4 @@ git commit -m "sync"
 git push
 
 echo "同步完成"
+
